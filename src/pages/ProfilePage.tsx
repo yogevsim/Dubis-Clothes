@@ -32,9 +32,11 @@ export default function ProfilePage() {
 
   if (!user) return <Navigate to="/" replace />
 
+  const uid = user.uid
+
   async function savePhone() {
     setSaving(true)
-    await updateDoc(doc(db, 'users', user.uid), { phone })
+    await updateDoc(doc(db, 'users', uid), { phone })
     setSaving(false)
     setSavedMsg(true)
     setTimeout(() => setSavedMsg(false), 2000)

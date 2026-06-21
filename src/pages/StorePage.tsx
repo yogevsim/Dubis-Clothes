@@ -350,11 +350,11 @@ export default function StorePage() {
 
           {/* collage */}
           <div style={{ position:'relative', height:420 }}>
-            <div style={{ position:'absolute', zIndex:3, width:84, height:84, borderRadius:'50%', background:'#FFFCF7', border:'2.5px solid #16121F', boxShadow:sh(4,4,0,'#16121F'), display:'flex', alignItems:'center', justifyContent:'center', transform:t.bearRotate, animation:'floaty 5.5s ease-in-out infinite .2s', '--r':t.bearR, ...t.bearPos } as React.CSSProperties}>
+            <div style={{ position:'absolute', zIndex:3, width:84, height:84, borderRadius:'50%', background:'#FFFCF7', border:'2.5px solid #16121F', boxShadow:sh(4,4,0,'#16121F'), display:'flex', alignItems:'center', justifyContent:'center', transform:t.bearRotate, animation:'floaty 5.5s ease-in-out infinite .2s', '--r':t.bearR, ...t.bearPos } as unknown as React.CSSProperties}>
               <TeddyBear size={54} />
             </div>
             {t.collage.map(({ label, color, bg, r, anim, pos, w, h, badge }) => (
-              <div key={label} style={{ position:'absolute', ...pos, width:w, height:h, background:bg, border:'2.5px solid #16121F', borderRadius:22, boxShadow:sh(6,6,0,'#16121F'), animation:anim, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:8, '--r':r } as React.CSSProperties}>
+              <div key={label} style={{ position:'absolute', ...pos, width:w, height:h, background:bg, border:'2.5px solid #16121F', borderRadius:22, boxShadow:sh(6,6,0,'#16121F'), animation:anim, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:8, '--r':r } as unknown as React.CSSProperties}>
                 <span style={{ fontFamily:t.fontHead, fontWeight:t.headWeight, fontSize:label.length > 4 ? 36 : 42, color }}>{label}</span>
                 <span style={{ fontFamily:t.fontBody, fontSize:lang==='en'?10:11, color:'rgba(22,18,31,.5)' }}>{lang==='en'?'PHOTO SOON':'תמונה בקרוב'}</span>
                 {badge && (
