@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- outer ears -->
+  <circle cx="23" cy="19" r="18" fill="#E0A872" stroke="#16121F" stroke-width="2.5"/>
+  <circle cx="77" cy="19" r="18" fill="#E0A872" stroke="#16121F" stroke-width="2.5"/>
+  <!-- inner ears (pink) -->
+  <circle cx="23" cy="17" r="9" fill="#FF8FCF"/>
+  <circle cx="77" cy="17" r="9" fill="#FF8FCF"/>
+  <!-- head -->
+  <ellipse cx="50" cy="62" rx="43" ry="39" fill="#E0A872" stroke="#16121F" stroke-width="2.5"/>
+  <!-- cheeks -->
+  <circle cx="21" cy="69" r="7" fill="#FF8FCF" opacity="0.85"/>
+  <circle cx="79" cy="69" r="7" fill="#FF8FCF" opacity="0.85"/>
+  <!-- eyes -->
+  <circle cx="36" cy="54" r="5" fill="#16121F"/>
+  <circle cx="64" cy="54" r="5" fill="#16121F"/>
+  <!-- snout -->
+  <ellipse cx="50" cy="75" rx="19" ry="13" fill="#FBE7CE" stroke="#16121F" stroke-width="2.5"/>
+  <!-- nose -->
+  <ellipse cx="50" cy="68" rx="6" ry="4" fill="#16121F"/>
+</svg>

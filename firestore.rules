@@ -1,0 +1,19 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Users can only read/write their own document (cart, phone, createdAt)
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // Products are publicly readable; only admins can write
+    match /products/{productId} {
+      allow read: if true;
+      allow write: if request.auth != null
+        && 'roles' in request.auth.token
+        && 'admin' in request.auth.token.roles;
+    }
+  }
+}
