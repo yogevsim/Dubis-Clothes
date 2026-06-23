@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { doc, getDoc, setDoc } from 'firebase/firestore'
+import { doc, getDoc, setDoc, collection, getDocs } from 'firebase/firestore'
 import TeddyBear from '../components/TeddyBear'
 import NavAvatar from '../components/NavAvatar'
 import SignInModal from '../components/SignInModal'
@@ -10,54 +10,14 @@ type Lang = 'en' | 'he'
 
 const ACCENT = '#FF3D8B'
 
-const PRODUCT_VISUALS = [
-  { id: 1,  cat: 'Tops',        bg: '#FFD9EC', ink: '#FF3D8B' },
-  { id: 2,  cat: 'Dresses',     bg: '#E6DBFF', ink: '#7B5BFF' },
-  { id: 3,  cat: 'Bottoms',     bg: '#CFE3FF', ink: '#2D7DD2' },
-  { id: 4,  cat: 'Outerwear',   bg: '#FFE9B0', ink: '#E59400' },
-  { id: 5,  cat: 'Accessories', bg: '#D9F5EC', ink: '#16C79A' },
-  { id: 6,  cat: 'Knit',        bg: '#FFD8C2', ink: '#FF6B3D' },
-  { id: 7,  cat: 'Shoes',       bg: '#CFE3FF', ink: '#2D7DD2' },
-  { id: 8,  cat: 'Tops',        bg: '#FFD9EC', ink: '#FF3D8B' },
-  { id: 9,  cat: 'Vintage',     bg: '#E6DBFF', ink: '#7B5BFF' },
-  { id: 10, cat: 'Accessories', bg: '#FFE9B0', ink: '#E59400' },
-  { id: 11, cat: 'Tops',        bg: '#D9F5EC', ink: '#16C79A' },
-  { id: 12, cat: 'Bottoms',     bg: '#FFD8C2', ink: '#FF6B3D' },
-]
-
-const PRODUCT_COPY: Record<Lang, { name: string; price: number; tag: string }[]> = {
-  en: [
-    { name: 'Cropped Band Tee',       price: 18,  tag: 'new in'      },
-    { name: 'Gingham Babydoll Dress',  price: 34,  tag: '1 of 1'      },
-    { name: 'Low-Rise Flare Jeans',    price: 28,  tag: 'restocked'   },
-    { name: 'Puffer Crop Jacket',      price: 46,  tag: 'fan fave'    },
-    { name: 'Beaded Shoulder Bag',     price: 22,  tag: 'new in'      },
-    { name: 'Chunky Knit Cardigan',    price: 30,  tag: 'cozy'        },
-    { name: 'Platform Sneakers',       price: 40,  tag: 'almost gone' },
-    { name: 'Butterfly Halter Top',    price: 16,  tag: 'new in'      },
-    { name: 'Patchwork Denim Skirt',   price: 36,  tag: '1 of 1'      },
-    { name: 'Fuzzy Bucket Hat',        price: 14,  tag: 'cute'        },
-    { name: 'Mesh Layer Long-Sleeve',  price: 20,  tag: 'new in'      },
-    { name: 'Cargo Parachute Pants',   price: 32,  tag: 'fan fave'    },
-  ],
-  he: [
-    { name: 'חולצת להקה קרופ',       price: 65,  tag: 'חדש'         },
-    { name: 'שמלת בייבידול משבצות',  price: 120, tag: '1 מתוך 1'    },
-    { name: "ג׳ינס מתרחב נמוך מותן", price: 99,  tag: 'חזר למלאי'   },
-    { name: "ג׳קט פאפר קרופ",        price: 160, tag: 'מועדף'        },
-    { name: 'תיק כתף חרוזים',        price: 75,  tag: 'חדש'          },
-    { name: 'קרדיגן סריג עבה',       price: 105, tag: 'חמים'         },
-    { name: 'סניקרס פלטפורמה',       price: 140, tag: 'כמעט אזל'    },
-    { name: 'טופ הולטר פרפר',        price: 55,  tag: 'חדש'          },
-    { name: "חצאית ג׳ינס טלאים",     price: 125, tag: '1 מתוך 1'    },
-    { name: 'כובע באקט פרוותי',      price: 49,  tag: 'חמוד'         },
-    { name: 'חולצת רשת ארוכה',       price: 69,  tag: 'חדש'          },
-    { name: 'מכנסי פראשוט דגמ״ח',    price: 110, tag: 'מועדף'        },
-  ],
-}
-
-function getProducts(lang: Lang) {
-  return PRODUCT_VISUALS.map((v, i) => ({ ...v, ...PRODUCT_COPY[lang][i] }))
+interface Product {
+  id: number
+  category: string
+  backgroundHex: string
+  inkHex: string
+  en: { name: string; price: number; tag: string }
+  he: { name: string; price: number; tag: string }
+  photoUrl: string | null
 }
 
 const CATS = ['All','Tops','Dresses','Bottoms','Outerwear','Knit','Shoes','Accessories','Vintage'] as const
@@ -173,13 +133,27 @@ export default function StorePage() {
   const [cartOpen, setCartOpen] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
   const [showSignInModal, setShowSignInModal] = useState(false)
+  const [products, setProducts] = useState<Product[]>([])
+  const [productsLoading, setProductsLoading] = useState(true)
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const cartRef = useRef(cart)
   cartRef.current = cart
 
   const t = T[lang]
-  const products = getProducts(lang)
   const catLabels = CAT_LABELS[lang]
+
+  // Fetch products from Firestore
+  useEffect(() => {
+    async function load() {
+      const docs = await getDocs(collection(db, 'products'))
+      const prods = docs.docs
+        .map(d => d.data() as Product)
+        .sort((a, b) => a.id - b.id)
+      setProducts(prods)
+      setProductsLoading(false)
+    }
+    void load()
+  }, [])
 
   // Merge local cart with Firestore cart when user signs in
   useEffect(() => {
@@ -233,7 +207,7 @@ export default function StorePage() {
     const newCart = { ...cart, [id]: (cart[id] || 0) + 1 }
     setCart(newCart)
     void saveCartToFirestore(newCart)
-    showToast(`${p.name} ${t.toastSuffix}`)
+    showToast(`${p[lang].name} ${t.toastSuffix}`)
   }
 
   function inc(id: number) {
@@ -269,8 +243,15 @@ export default function StorePage() {
     }
   }
 
-  const filtered  = products.filter(p => cat === 'All' || p.cat === cat)
-  const cartItems = Object.entries(cart).map(([id, qty]) => ({ ...products.find(x => x.id === +id)!, qty }))
+  const filtered  = products.filter(p => cat === 'All' || p.category === cat)
+  const cartItems = Object.entries(cart)
+    .map(([id, qty]) => {
+      const p = products.find(x => x.id === +id)
+      if (!p) return null
+      const langData = p[lang]
+      return { ...p, qty, name: langData.name, price: langData.price, tag: langData.tag, category: p.category }
+    })
+    .filter((x): x is Product & { qty: number; name: string; price: number; tag: string; category: string } => x !== null)
   const cartCount = cartItems.reduce((n, it) => n + it.qty, 0)
   const subtotal  = cartItems.reduce((n, it) => n + it.price * it.qty, 0)
   const hasItems  = cartItems.length > 0
@@ -385,27 +366,44 @@ export default function StorePage() {
           </div>
 
           <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(238px, 1fr))', gap:22 }}>
-            {filtered.map(p => (
-              <div key={p.id} className="card-hover" style={{ background:'#fff', border:'2.5px solid #16121F', borderRadius:22, overflow:'hidden', boxShadow:sh(4,4,0,'#16121F'), display:'flex', flexDirection:'column' }}>
-                <div style={{ position:'relative', aspectRatio:'4/5', overflow:'hidden', background:p.bg, borderBottom:'2.5px solid #16121F' }}>
-                  <div style={{ position:'absolute', inset:0, backgroundImage:'repeating-linear-gradient(45deg,rgba(255,255,255,.4) 0 11px,transparent 11px 22px)' }} />
-                  <div style={{ position:'absolute', inset:0, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:7 }}>
-                    <span style={{ fontFamily:t.fontHead, fontWeight:t.headWeight, fontSize:lang==='en'?30:28, color:'rgba(22,18,31,.32)', textTransform:lang==='en'?'uppercase':undefined }}>{catLabels[p.cat as Cat]}</span>
-                    <span style={{ fontFamily:t.fontBody, fontSize:lang==='en'?10:11, color:'rgba(22,18,31,.5)', textTransform:lang==='en'?'uppercase':undefined }}>{lang==='en'?'photo coming soon':'תמונה בקרוב'}</span>
-                  </div>
-                  <div style={{ position:'absolute', top:11, [lang==='en'?'left':'right']:11, transform:lang==='en'?'rotate(-5deg)':'rotate(5deg)', background:p.ink, color:'#fff', fontFamily:t.fontBody, fontSize:lang==='en'?10:11, fontWeight:700, letterSpacing:lang==='en'?'.06em':undefined, textTransform:lang==='en'?'uppercase':undefined, padding:'5px 9px', borderRadius:9, border:'2px solid #16121F', boxShadow:sh(2,2,0,'#16121F') }}>
-                    {p.tag}
-                  </div>
-                </div>
-                <div style={{ padding:'15px 15px 17px', display:'flex', flexDirection:'column', gap:9, flex:1 }}>
-                  <h3 style={{ margin:0, fontFamily:t.fontHead, fontWeight:t.headWeight === 800 ? 700 : 600, fontSize:18, lineHeight:1.25 }}>{p.name}</h3>
-                  <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:10, marginTop:'auto' }}>
-                    <span style={{ fontFamily:t.fontHead, fontWeight:t.headWeight, fontSize:lang==='en'?23:22 }}>{t.fmtPrice(p.price)}</span>
-                    <button onClick={() => add(p.id)} className="btn-lift" style={addBtnStyle}>{t.addBtn}</button>
-                  </div>
-                </div>
+            {productsLoading ? (
+              <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '40px 20px', color: '#8A8194', fontFamily: t.fontBody }}>
+                Loading products…
               </div>
-            ))}
+            ) : (
+              filtered.map(p => {
+                const name = p[lang].name
+                const price = p[lang].price
+                const tag = p[lang].tag
+                return (
+                  <div key={p.id} className="card-hover" style={{ background:'#fff', border:'2.5px solid #16121F', borderRadius:22, overflow:'hidden', boxShadow:sh(4,4,0,'#16121F'), display:'flex', flexDirection:'column' }}>
+                    <div style={{ position:'relative', aspectRatio:'4/5', overflow:'hidden', background:p.photoUrl ? 'transparent' : p.backgroundHex, borderBottom:'2.5px solid #16121F' }}>
+                      {p.photoUrl ? (
+                        <img src={p.photoUrl} alt={name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      ) : (
+                        <>
+                          <div style={{ position:'absolute', inset:0, backgroundImage:'repeating-linear-gradient(45deg,rgba(255,255,255,.4) 0 11px,transparent 11px 22px)' }} />
+                          <div style={{ position:'absolute', inset:0, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:7 }}>
+                            <span style={{ fontFamily:t.fontHead, fontWeight:t.headWeight, fontSize:lang==='en'?30:28, color:'rgba(22,18,31,.32)', textTransform:lang==='en'?'uppercase':undefined }}>{catLabels[p.category as Cat]}</span>
+                            <span style={{ fontFamily:t.fontBody, fontSize:lang==='en'?10:11, color:'rgba(22,18,31,.5)', textTransform:lang==='en'?'uppercase':undefined }}>{lang==='en'?'photo coming soon':'תמונה בקרוב'}</span>
+                          </div>
+                        </>
+                      )}
+                      <div style={{ position:'absolute', top:11, [lang==='en'?'left':'right']:11, transform:lang==='en'?'rotate(-5deg)':'rotate(5deg)', background:p.inkHex, color:'#fff', fontFamily:t.fontBody, fontSize:lang==='en'?10:11, fontWeight:700, letterSpacing:lang==='en'?'.06em':undefined, textTransform:lang==='en'?'uppercase':undefined, padding:'5px 9px', borderRadius:9, border:'2px solid #16121F', boxShadow:sh(2,2,0,'#16121F') }}>
+                        {tag}
+                      </div>
+                    </div>
+                    <div style={{ padding:'15px 15px 17px', display:'flex', flexDirection:'column', gap:9, flex:1 }}>
+                      <h3 style={{ margin:0, fontFamily:t.fontHead, fontWeight:t.headWeight === 800 ? 700 : 600, fontSize:18, lineHeight:1.25 }}>{name}</h3>
+                      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:10, marginTop:'auto' }}>
+                        <span style={{ fontFamily:t.fontHead, fontWeight:t.headWeight, fontSize:lang==='en'?23:22 }}>{t.fmtPrice(price)}</span>
+                        <button onClick={() => add(p.id)} className="btn-lift" style={addBtnStyle}>{t.addBtn}</button>
+                      </div>
+                    </div>
+                  </div>
+                )
+              })
+            )}
           </div>
         </section>
 
@@ -439,9 +437,9 @@ export default function StorePage() {
             <div style={{ flex:1, overflowY:'auto', padding:'16px 20px', display:'flex', flexDirection:'column', gap:14 }}>
               {cartItems.map(it => (
                 <div key={it.id} style={{ display:'flex', gap:12, alignItems:'center' }}>
-                  <div style={{ position:'relative', width:62, height:74, flexShrink:0, borderRadius:12, border:'2px solid #16121F', background:it.bg, overflow:'hidden' }}>
+                  <div style={{ position:'relative', width:62, height:74, flexShrink:0, borderRadius:12, border:'2px solid #16121F', background:it.backgroundHex, overflow:'hidden' }}>
                     <div style={{ position:'absolute', inset:0, backgroundImage:'repeating-linear-gradient(45deg,rgba(255,255,255,.4) 0 8px,transparent 8px 16px)' }} />
-                    <span style={{ position:'absolute', inset:0, display:'flex', alignItems:'center', justifyContent:'center', fontFamily:t.fontHead, fontWeight:700, fontSize:12, color:'rgba(22,18,31,.4)' }}>{catLabels[it.cat as Cat]}</span>
+                    <span style={{ position:'absolute', inset:0, display:'flex', alignItems:'center', justifyContent:'center', fontFamily:t.fontHead, fontWeight:700, fontSize:12, color:'rgba(22,18,31,.4)' }}>{catLabels[it.category as Cat]}</span>
                   </div>
                   <div style={{ flex:1, minWidth:0 }}>
                     <div style={{ fontFamily:t.fontHead, fontWeight:700, fontSize:15, lineHeight:1.25 }}>{it.name}</div>

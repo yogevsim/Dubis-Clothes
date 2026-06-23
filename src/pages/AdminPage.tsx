@@ -1,18 +1,15 @@
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import TeddyBear from '../components/TeddyBear'
+import ProductsManager from '../components/ProductsManager'
 
 const SH = (x: number, y: number, b: number, c: string) => `${x}px ${y}px ${b}px ${c}`
 
 export default function AdminPage() {
   const { user } = useAuth()
   const navigate = useNavigate()
-
-  const cards = [
-    { label: 'Products', desc: 'Manage catalog items', bg: '#FFD9EC', ink: '#FF3D8B' },
-    { label: 'Orders',   desc: 'View & fulfill orders', bg: '#CFE3FF', ink: '#2D7DD2' },
-    { label: 'Users',    desc: 'Manage shopper accounts', bg: '#E6DBFF', ink: '#7B5BFF' },
-  ]
+  const [tab, setTab] = useState<'products' | 'orders' | 'users'>('products')
 
   return (
     <div style={{ minHeight: '100vh', background: '#FFFCF7', fontFamily: "'Space Grotesk', sans-serif", position: 'relative' }}>
@@ -26,7 +23,7 @@ export default function AdminPage() {
           ← Back to store
         </button>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 36 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 30 }}>
           <div style={{ background: '#7B5BFF', border: '3px solid #16121F', borderRadius: 16, padding: '10px 12px', boxShadow: SH(4, 4, 0, '#16121F') }}>
             <TeddyBear size={36} />
           </div>
@@ -36,21 +33,42 @@ export default function AdminPage() {
           </div>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 20 }}>
-          {cards.map(card => (
-            <div key={card.label} style={{ background: '#fff', border: '2.5px solid #16121F', borderRadius: 20, boxShadow: SH(4, 4, 0, '#16121F'), overflow: 'hidden' }}>
-              <div style={{ height: 80, background: card.bg, borderBottom: '2.5px solid #16121F', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <span style={{ fontFamily: 'Fredoka, sans-serif', fontWeight: 700, fontSize: 28, color: card.ink }}>{card.label}</span>
-              </div>
-              <div style={{ padding: '14px 16px' }}>
-                <p style={{ margin: '0 0 12px', fontSize: 13, color: '#6B6475' }}>{card.desc}</p>
-                <span style={{ display: 'inline-block', background: '#FFE9B0', border: '2px solid #16121F', borderRadius: 999, padding: '4px 10px', fontFamily: "'Space Mono', monospace", fontSize: 11, fontWeight: 700 }}>
-                  coming soon
-                </span>
-              </div>
-            </div>
+        {/* Tabs */}
+        <div style={{ display: 'flex', gap: 8, marginBottom: 24, borderBottom: '2.5px solid #16121F', paddingBottom: 12 }}>
+          {(['products', 'orders', 'users'] as const).map(t => (
+            <button
+              key={t}
+              onClick={() => setTab(t)}
+              style={{
+                padding: '10px 16px',
+                background: tab === t ? '#FF3D8B' : '#fff',
+                color: tab === t ? '#fff' : '#16121F',
+                border: '2px solid #16121F',
+                borderRadius: 10,
+                fontFamily: "'Space Grotesk', sans-serif",
+                fontWeight: 700,
+                fontSize: 14,
+                cursor: 'pointer',
+                textTransform: 'capitalize',
+              }}
+            >
+              {t}
+            </button>
           ))}
         </div>
+
+        {/* Content */}
+        {tab === 'products' && <ProductsManager />}
+        {tab === 'orders' && (
+          <div style={{ padding: '20px', background: '#FFF6FB', borderRadius: 14, border: '2px solid #EBE3D6', textAlign: 'center', color: '#8A8194' }}>
+            Coming soon
+          </div>
+        )}
+        {tab === 'users' && (
+          <div style={{ padding: '20px', background: '#FFF6FB', borderRadius: 14, border: '2px solid #EBE3D6', textAlign: 'center', color: '#8A8194' }}>
+            Coming soon
+          </div>
+        )}
       </div>
     </div>
   )
