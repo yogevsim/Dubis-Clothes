@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { collection, getDocs, doc, updateDoc, deleteDoc, addDoc, Timestamp } from 'firebase/firestore'
 import { db } from '../firebase'
-import ImageUploadCrop from './ImageUploadCrop'
+import ProductFormModal from './ProductFormModal'
 
 interface Product {
   id: number
@@ -20,17 +20,8 @@ const SH = (x: number, y: number, b: number, c: string) => `${x}px ${y}px ${b}px
 export default function ProductsManager() {
   const [products, setProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
-  const [editingId, setEditingId] = useState<number | null>(null)
-  const [uploading, setUploading] = useState(false)
-  const [expandedForm, setExpandedForm] = useState(false)
-  const [form, setForm] = useState<Partial<Product>>({
-    category: CATEGORIES[0],
-    backgroundHex: '#FFD9EC',
-    inkHex: '#FF3D8B',
-    en: { name: '', price: 0, tag: '' },
-    he: { name: '', price: 0, tag: '' },
-    photoUrl: null,
-  })
+  const [modalOpen, setModalOpen] = useState(false)
+  const [editingProduct, setEditingProduct] = useState<Product | undefined>()
 
   useEffect(() => {
     loadProducts()
@@ -45,64 +36,59 @@ export default function ProductsManager() {
     setLoading(false)
   }
 
-  async function handleSave() {
-    if (!form.en?.name || !form.he?.name || editingId === undefined) return
-
-    setUploading(true)
+  async function handleSave(formData: Partial<Product>) {
     try {
-      if (editingId !== null) {
-        const docRef = doc(db, 'products', String(editingId))
+      if (editingProduct) {
+        // Update existing
+        const docRef = doc(db, 'products', String(editingProduct.id))
         await updateDoc(docRef, {
-          category: form.category,
-          backgroundHex: form.backgroundHex,
-          inkHex: form.inkHex,
-          en: form.en,
-          he: form.he,
-          photoUrl: form.photoUrl,
+          category: formData.category,
+          backgroundHex: formData.backgroundHex,
+          inkHex: formData.inkHex,
+          en: formData.en,
+          he: formData.he,
+          photoUrl: formData.photoUrl,
         })
       } else {
+        // Create new
         const nextId = (Math.max(...products.map(p => p.id ?? 0), 0) as number) + 1
         await addDoc(collection(db, 'products'), {
           id: nextId,
-          category: form.category,
-          backgroundHex: form.backgroundHex,
-          inkHex: form.inkHex,
-          en: form.en,
-          he: form.he,
-          photoUrl: form.photoUrl,
+          category: formData.category,
+          backgroundHex: formData.backgroundHex,
+          inkHex: formData.inkHex,
+          en: formData.en,
+          he: formData.he,
+          photoUrl: formData.photoUrl,
           createdAt: Timestamp.now(),
         })
       }
       await loadProducts()
-      setEditingId(null)
-      setForm({
-        category: CATEGORIES[0],
-        backgroundHex: '#FFD9EC',
-        inkHex: '#FF3D8B',
-        en: { name: '', price: 0, tag: '' },
-        he: { name: '', price: 0, tag: '' },
-        photoUrl: null,
-      })
-      setExpandedForm(false)
-    } finally {
-      setUploading(false)
+      setModalOpen(false)
+      setEditingProduct(undefined)
+    } catch (error) {
+      console.error('Save failed:', error)
     }
   }
 
   async function handleDelete(id: number) {
     if (!confirm('Delete this product?')) return
-    await deleteDoc(doc(db, 'products', String(id)))
-    await loadProducts()
+    try {
+      await deleteDoc(doc(db, 'products', String(id)))
+      await loadProducts()
+    } catch (error) {
+      console.error('Delete failed:', error)
+    }
   }
 
-  function handleEdit(p: Product) {
-    setEditingId(p.id)
-    setForm(p)
-    setExpandedForm(true)
+  function openAddModal() {
+    setEditingProduct(undefined)
+    setModalOpen(true)
   }
 
-  async function handlePhotoUpload(url: string) {
-    setForm({ ...form, photoUrl: url })
+  function openEditModal(product: Product) {
+    setEditingProduct(product)
+    setModalOpen(true)
   }
 
   if (loading) return <div>Loading…</div>
@@ -110,18 +96,7 @@ export default function ProductsManager() {
   return (
     <div style={{ padding: '20px 0' }}>
       <button
-        onClick={() => {
-          setEditingId(null)
-          setForm({
-            category: CATEGORIES[0],
-            backgroundHex: '#FFD9EC',
-            inkHex: '#FF3D8B',
-            en: { name: '', price: 0, tag: '' },
-            he: { name: '', price: 0, tag: '' },
-            photoUrl: null,
-          })
-          setExpandedForm(!expandedForm)
-        }}
+        onClick={openAddModal}
         className="btn-lift"
         style={{
           cursor: 'pointer',
@@ -137,239 +112,10 @@ export default function ProductsManager() {
           marginBottom: 20,
         }}
       >
-        {expandedForm ? '✕ Cancel' : '+ Add Product'}
+        + Add Product
       </button>
 
-      {expandedForm && (
-        <div
-          style={{
-            background: '#fff',
-            border: '2.5px solid #16121F',
-            borderRadius: 16,
-            padding: '20px',
-            marginBottom: 20,
-            boxShadow: SH(4, 4, 0, '#16121F'),
-          }}
-        >
-          <h3 style={{ margin: '0 0 16px', fontFamily: 'Fredoka, sans-serif', fontWeight: 700 }}>
-            {editingId ? 'Edit Product' : 'New Product'}
-          </h3>
-
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
-            <div>
-              <label style={{ display: 'block', marginBottom: 6, fontWeight: 600, fontSize: 13 }}>Category</label>
-              <select
-                value={form.category}
-                onChange={e => setForm({ ...form, category: e.target.value })}
-                style={{
-                  width: '100%',
-                  padding: '8px 12px',
-                  border: '2px solid #16121F',
-                  borderRadius: 10,
-                  fontFamily: "'Space Grotesk', sans-serif",
-                  fontSize: 14,
-                }}
-              >
-                {CATEGORIES.map(c => (
-                  <option key={c} value={c}>
-                    {c}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label style={{ display: 'block', marginBottom: 6, fontWeight: 600, fontSize: 13 }}>Background Color</label>
-              <input
-                type="color"
-                value={form.backgroundHex}
-                onChange={e => setForm({ ...form, backgroundHex: e.target.value })}
-                style={{
-                  width: '100%',
-                  height: 40,
-                  border: '2px solid #16121F',
-                  borderRadius: 10,
-                  cursor: 'pointer',
-                }}
-              />
-            </div>
-
-            <div>
-              <label style={{ display: 'block', marginBottom: 6, fontWeight: 600, fontSize: 13 }}>Ink Color</label>
-              <input
-                type="color"
-                value={form.inkHex}
-                onChange={e => setForm({ ...form, inkHex: e.target.value })}
-                style={{
-                  width: '100%',
-                  height: 40,
-                  border: '2px solid #16121F',
-                  borderRadius: 10,
-                  cursor: 'pointer',
-                }}
-              />
-            </div>
-
-            <div>
-              <label style={{ display: 'block', marginBottom: 6, fontWeight: 600, fontSize: 13 }}>Tag</label>
-              <input
-                type="text"
-                value={form.en?.tag ?? ''}
-                onChange={e => setForm({ ...form, en: { ...form.en!, tag: e.target.value } })}
-                placeholder="e.g., new in"
-                style={{
-                  width: '100%',
-                  padding: '8px 12px',
-                  border: '2px solid #16121F',
-                  borderRadius: 10,
-                  fontFamily: "'Space Grotesk', sans-serif",
-                  fontSize: 14,
-                }}
-              />
-            </div>
-          </div>
-
-          {/* EN */}
-          <div style={{ marginBottom: 16, paddingBottom: 16, borderBottom: '2px solid #EBE3D6' }}>
-            <h4 style={{ margin: '0 0 10px', fontSize: 14, fontWeight: 700 }}>English</h4>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 120px', gap: 12 }}>
-              <input
-                type="text"
-                value={form.en?.name ?? ''}
-                onChange={e => setForm({ ...form, en: { ...form.en!, name: e.target.value } })}
-                placeholder="Product name"
-                style={{
-                  padding: '8px 12px',
-                  border: '2px solid #16121F',
-                  borderRadius: 10,
-                  fontFamily: "'Space Grotesk', sans-serif",
-                  fontSize: 14,
-                }}
-              />
-              <input
-                type="number"
-                value={form.en?.price ?? 0}
-                onChange={e => setForm({ ...form, en: { ...form.en!, price: parseFloat(e.target.value) } })}
-                placeholder="Price"
-                style={{
-                  padding: '8px 12px',
-                  border: '2px solid #16121F',
-                  borderRadius: 10,
-                  fontFamily: "'Space Grotesk', sans-serif",
-                  fontSize: 14,
-                }}
-              />
-            </div>
-          </div>
-
-          {/* HE */}
-          <div style={{ marginBottom: 16 }}>
-            <h4 style={{ margin: '0 0 10px', fontSize: 14, fontWeight: 700 }}>Hebrew</h4>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 120px', gap: 12 }}>
-              <input
-                type="text"
-                value={form.he?.name ?? ''}
-                onChange={e => setForm({ ...form, he: { ...form.he!, name: e.target.value } })}
-                placeholder="שם המוצר"
-                style={{
-                  padding: '8px 12px',
-                  border: '2px solid #16121F',
-                  borderRadius: 10,
-                  fontFamily: "'Space Grotesk', sans-serif",
-                  fontSize: 14,
-                }}
-              />
-              <input
-                type="number"
-                value={form.he?.price ?? 0}
-                onChange={e => setForm({ ...form, he: { ...form.he!, price: parseFloat(e.target.value) } })}
-                placeholder="מחיר"
-                style={{
-                  padding: '8px 12px',
-                  border: '2px solid #16121F',
-                  borderRadius: 10,
-                  fontFamily: "'Space Grotesk', sans-serif",
-                  fontSize: 14,
-                }}
-              />
-            </div>
-          </div>
-
-          {/* Photo */}
-          {form.photoUrl ? (
-            <div style={{ marginBottom: 16 }}>
-              <div style={{ marginBottom: 10, fontWeight: 600, fontSize: 13 }}>Photo</div>
-              <div style={{ position: 'relative', marginBottom: 10 }}>
-                <img src={form.photoUrl} alt="preview" style={{ maxWidth: 200, borderRadius: 10, border: '2px solid #16121F' }} />
-                <button
-                  onClick={() => setForm({ ...form, photoUrl: null })}
-                  style={{
-                    position: 'absolute',
-                    top: 4,
-                    right: 4,
-                    background: '#FF3D8B',
-                    color: '#fff',
-                    border: 'none',
-                    borderRadius: 6,
-                    width: 28,
-                    height: 28,
-                    cursor: 'pointer',
-                    fontWeight: 700,
-                  }}
-                >
-                  ✕
-                </button>
-              </div>
-              <button
-                onClick={() => setForm({ ...form, photoUrl: null })}
-                style={{
-                  padding: '8px 16px',
-                  background: '#fff',
-                  color: '#16121F',
-                  border: '2px solid #EBE3D6',
-                  borderRadius: 10,
-                  fontFamily: "'Space Grotesk', sans-serif",
-                  fontWeight: 600,
-                  fontSize: 13,
-                  cursor: 'pointer',
-                }}
-              >
-                Change photo
-              </button>
-            </div>
-          ) : (
-            <div style={{ marginBottom: 16 }}>
-              <ImageUploadCrop
-                onUpload={handlePhotoUpload}
-                onCancel={() => {}}
-                label="Upload product photo"
-              />
-            </div>
-          )}
-
-          <button
-            onClick={handleSave}
-            disabled={uploading || !form.en?.name || !form.he?.name}
-            style={{
-              cursor: uploading ? 'wait' : 'pointer',
-              width: '100%',
-              padding: '12px 20px',
-              background: '#FF3D8B',
-              color: '#fff',
-              border: '2.5px solid #16121F',
-              borderRadius: 12,
-              fontFamily: 'Fredoka, sans-serif',
-              fontWeight: 700,
-              fontSize: 15,
-              opacity: uploading || !form.en?.name || !form.he?.name ? 0.65 : 1,
-            }}
-          >
-            {uploading ? '…' : 'Save Product'}
-          </button>
-        </div>
-      )}
-
-      {/* Product list */}
+      {/* Product grid */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 16 }}>
         {products.map(p => (
           <div
@@ -399,6 +145,8 @@ export default function ProductsManager() {
                   justifyContent: 'center',
                   fontSize: 12,
                   color: 'rgba(22,18,31,0.3)',
+                  textAlign: 'center',
+                  padding: '8px',
                 }}
               >
                 {p.en.name}
@@ -413,7 +161,7 @@ export default function ProductsManager() {
               </div>
               <div style={{ display: 'flex', gap: 6 }}>
                 <button
-                  onClick={() => handleEdit(p)}
+                  onClick={() => openEditModal(p)}
                   style={{
                     flex: 1,
                     padding: '6px',
@@ -450,6 +198,19 @@ export default function ProductsManager() {
           </div>
         ))}
       </div>
+
+      {/* Modal */}
+      {modalOpen && (
+        <ProductFormModal
+          product={editingProduct}
+          categories={CATEGORIES}
+          onSave={handleSave}
+          onClose={() => {
+            setModalOpen(false)
+            setEditingProduct(undefined)
+          }}
+        />
+      )}
     </div>
   )
 }

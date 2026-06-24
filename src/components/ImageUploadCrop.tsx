@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react'
-import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage'
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage'
+import { storage } from '../firebase'
 
 interface Props {
   onUpload: (url: string) => Promise<void>
@@ -52,7 +53,6 @@ export default function ImageUploadCrop({ onUpload, onCancel, label = 'Upload im
       canvas.toBlob(async blob => {
         if (!blob) return
         try {
-          const storage = getStorage()
           const fileName = `${Date.now()}-${file.name}`
           const storageRef = ref(storage, `products/${fileName}`)
           await uploadBytes(storageRef, blob)

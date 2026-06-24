@@ -7,7 +7,7 @@
  */
 
 import { initializeApp, cert } from 'firebase-admin/app'
-import { getFirestore, collection, doc, setDoc } from 'firebase-admin/firestore'
+import { getFirestore } from 'firebase-admin/firestore'
 import { readFileSync } from 'fs'
 
 let credential
@@ -37,9 +37,8 @@ const products = [
 ]
 
 async function seed() {
-  const productsRef = collection(db, 'products')
   for (const p of products) {
-    await setDoc(doc(productsRef, String(p.id)), {
+    await db.collection('products').doc(String(p.id)).set({
       id: p.id,
       category: p.cat,
       backgroundHex: p.bg,
