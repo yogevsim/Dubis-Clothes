@@ -39,9 +39,9 @@ export default function ProductsManager() {
         const data = d.data() as any
         // Support both old (he/en) and new (flat) structures
         const product: Product = data.name !== undefined
-          ? (data as Product)
+          ? { ...data, id: String(data.id) }
           : {
-              id: data.id,
+              id: String(data.id),
               category: data.category,
               backgroundHex: data.backgroundHex,
               inkHex: data.inkHex,
@@ -52,7 +52,7 @@ export default function ProductsManager() {
             }
         return { ...product, _docId: d.id }
       })
-      .sort((a, b) => (a.id ?? 0) - (b.id ?? 0))
+      .sort((a, b) => Number(a.id) - Number(b.id))
     setProducts(prods)
     setLoading(false)
   }
@@ -78,7 +78,7 @@ export default function ProductsManager() {
         console.log('Update succeeded')
       } else {
         // Create new
-        const nextId = (Math.max(...products.map(p => p.id ?? 0), 0) as number) + 1
+        const nextId = Math.max(...products.map(p => Number(p.id) || 0), 0) + 1
         await addDoc(collection(db, 'products'), {
           id: nextId,
           category: formData.category,
