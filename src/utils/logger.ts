@@ -10,6 +10,9 @@ function sendToServer(level: LogLevel, args: any[]) {
       typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)
     ).join(' ')
 
+    // Skip Vite's internal messages
+    if (message.includes('[vite]')) return
+
     // Send to server via beacon (doesn't block, works even on page unload)
     navigator.sendBeacon('/__dev_log__', JSON.stringify({ level, message, timestamp: new Date().toISOString() }))
   } catch (e) {
