@@ -207,6 +207,7 @@ export default function StorePage() {
           <nav style={{ position:'sticky', top:0, zIndex:40, display:'grid', gridTemplateColumns:'52px 1fr 52px', alignItems:'center', padding:'0 14px', height:62, background:'rgba(255,252,247,.94)', backdropFilter:'blur(14px)', borderBottom:'2px solid #16121F' }}>
             {/* Hamburger */}
             <button
+              dir="ltr"
               onClick={() => setMobileMenuOpen(o => !o)}
               style={{ cursor:'pointer', justifySelf:'start', width:44, height:44, borderRadius:14, border:'2px solid #16121F', background:'transparent', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:4.5, padding:0 }}
             >
