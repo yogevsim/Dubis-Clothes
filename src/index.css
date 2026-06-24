@@ -30,6 +30,7 @@ button { font-family: inherit; }
 }
 
 .marquee { animation: marquee 22s linear infinite; }
+.cat-scroll::-webkit-scrollbar { display: none; }
 .card-hover { transition: transform .14s, box-shadow .14s; }
 [dir="ltr"] .card-hover:hover { transform: translateY(-5px) !important; box-shadow: 8px 8px 0 #16121F !important; }
 [dir="rtl"] .card-hover:hover { transform: translateY(-5px) !important; box-shadow: -8px 8px 0 #16121F !important; }
