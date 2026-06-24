@@ -2,12 +2,13 @@ import { useState, useEffect } from 'react'
 import ImageUploadCrop from './ImageUploadCrop'
 
 interface Product {
-  id: number
+  id: string
   category: string
   backgroundHex: string
   inkHex: string
-  en: { name: string; price: number; tag: string }
-  he: { name: string; price: number; tag: string }
+  name: string
+  price: number
+  tag: string
   photoUrl: string | null
 }
 
@@ -26,8 +27,9 @@ export default function ProductFormModal({ product, categories, onSave, onClose 
       category: categories[0],
       backgroundHex: '#FFD9EC',
       inkHex: '#FF3D8B',
-      en: { name: '', price: 0, tag: '' },
-      he: { name: '', price: 0, tag: '' },
+      name: '',
+      price: 0,
+      tag: '',
       photoUrl: null,
     }
   )
@@ -35,12 +37,15 @@ export default function ProductFormModal({ product, categories, onSave, onClose 
 
   useEffect(() => {
     if (product) {
-      setForm(product)
+      setForm({
+        ...product,
+        tag: product.tag || '', // Ensure tag is always a string
+      })
     }
   }, [product])
 
   async function handleSubmit() {
-    if (!form.en?.name || !form.he?.name) return
+    if (!form.name) return
     setUploading(true)
     try {
       await onSave(form)
@@ -81,14 +86,14 @@ export default function ProductFormModal({ product, categories, onSave, onClose 
           boxShadow: SH(8, 8, 0, '#16121F'),
         }}
       >
-        <h2 style={{ margin: '0 0 20px', fontFamily: 'Fredoka, sans-serif', fontWeight: 700, fontSize: 24 }}>
-          {product ? 'Edit Product' : 'New Product'}
+        <h2 style={{ margin: '0 0 20px', fontFamily: 'Rubik, sans-serif', fontWeight: 700, fontSize: 24 }}>
+          {product ? 'ערוך מוצר' : 'מוצר חדש'}
         </h2>
 
         {/* Category & Colors */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
           <div>
-            <label style={{ display: 'block', marginBottom: 6, fontWeight: 600, fontSize: 13 }}>Category</label>
+            <label style={{ display: 'block', marginBottom: 6, fontWeight: 600, fontSize: 13 }}>קטגוריה</label>
             <select
               value={form.category}
               onChange={e => setForm({ ...form, category: e.target.value })}
@@ -97,7 +102,7 @@ export default function ProductFormModal({ product, categories, onSave, onClose 
                 padding: '8px 12px',
                 border: '2px solid #16121F',
                 borderRadius: 10,
-                fontFamily: "'Space Grotesk', sans-serif",
+                fontFamily: 'Heebo, sans-serif',
                 fontSize: 14,
               }}
             >
@@ -110,7 +115,7 @@ export default function ProductFormModal({ product, categories, onSave, onClose 
           </div>
 
           <div>
-            <label style={{ display: 'block', marginBottom: 6, fontWeight: 600, fontSize: 13 }}>Background</label>
+            <label style={{ display: 'block', marginBottom: 6, fontWeight: 600, fontSize: 13 }}>צבע רקע</label>
             <input
               type="color"
               value={form.backgroundHex}
@@ -126,7 +131,7 @@ export default function ProductFormModal({ product, categories, onSave, onClose 
           </div>
 
           <div>
-            <label style={{ display: 'block', marginBottom: 6, fontWeight: 600, fontSize: 13 }}>Ink Color</label>
+            <label style={{ display: 'block', marginBottom: 6, fontWeight: 600, fontSize: 13 }}>צבע דיו</label>
             <input
               type="color"
               value={form.inkHex}
@@ -142,87 +147,61 @@ export default function ProductFormModal({ product, categories, onSave, onClose 
           </div>
 
           <div>
-            <label style={{ display: 'block', marginBottom: 6, fontWeight: 600, fontSize: 13 }}>Tag</label>
+            <label style={{ display: 'block', marginBottom: 6, fontWeight: 600, fontSize: 13 }}>תג</label>
             <input
               type="text"
-              value={form.en?.tag ?? ''}
-              onChange={e => setForm({ ...form, en: { ...form.en!, tag: e.target.value } })}
-              placeholder="e.g., new in"
+              value={form.tag ?? ''}
+              onChange={e => setForm({ ...form, tag: e.target.value })}
+              placeholder="לדוגמה: חדש"
               style={{
                 width: '100%',
                 padding: '8px 12px',
                 border: '2px solid #16121F',
                 borderRadius: 10,
-                fontFamily: "'Space Grotesk', sans-serif",
+                fontFamily: 'Heebo, sans-serif',
                 fontSize: 14,
               }}
             />
           </div>
         </div>
 
-        {/* English */}
-        <div style={{ marginBottom: 16, paddingBottom: 16, borderBottom: '2px solid #EBE3D6' }}>
-          <h4 style={{ margin: '0 0 10px', fontSize: 14, fontWeight: 700 }}>English</h4>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 100px', gap: 12 }}>
-            <input
-              type="text"
-              value={form.en?.name ?? ''}
-              onChange={e => setForm({ ...form, en: { ...form.en!, name: e.target.value } })}
-              placeholder="Product name"
-              style={{
-                padding: '8px 12px',
-                border: '2px solid #16121F',
-                borderRadius: 10,
-                fontFamily: "'Space Grotesk', sans-serif",
-                fontSize: 14,
-              }}
-            />
-            <input
-              type="number"
-              value={form.en?.price ?? 0}
-              onChange={e => setForm({ ...form, en: { ...form.en!, price: parseFloat(e.target.value) || 0 } })}
-              placeholder="Price"
-              style={{
-                padding: '8px 12px',
-                border: '2px solid #16121F',
-                borderRadius: 10,
-                fontFamily: "'Space Grotesk', sans-serif",
-                fontSize: 14,
-              }}
-            />
-          </div>
-        </div>
-
-        {/* Hebrew */}
+        {/* Product Details */}
         <div style={{ marginBottom: 16 }}>
-          <h4 style={{ margin: '0 0 10px', fontSize: 14, fontWeight: 700 }}>Hebrew</h4>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 100px', gap: 12 }}>
-            <input
-              type="text"
-              value={form.he?.name ?? ''}
-              onChange={e => setForm({ ...form, he: { ...form.he!, name: e.target.value } })}
-              placeholder="שם המוצר"
-              style={{
-                padding: '8px 12px',
-                border: '2px solid #16121F',
-                borderRadius: 10,
-                fontFamily: "'Space Grotesk', sans-serif",
-                fontSize: 14,
-              }}
-            />
-            <input
-              type="number"
-              value={form.he?.price ?? 0}
-              onChange={e => setForm({ ...form, he: { ...form.he!, price: parseFloat(e.target.value) || 0 } })}
-              placeholder="מחיר"
-              style={{
-                padding: '8px 12px',
-                border: '2px solid #16121F',
-                borderRadius: 10,
-                fontFamily: "'Space Grotesk', sans-serif",
-                fontSize: 14,
-              }}
-            />
+            <div>
+              <label style={{ display: 'block', marginBottom: 6, fontWeight: 600, fontSize: 13 }}>שם המוצר</label>
+              <input
+                type="text"
+                value={form.name ?? ''}
+                onChange={e => setForm({ ...form, name: e.target.value })}
+                placeholder="שם המוצר"
+                style={{
+                  padding: '8px 12px',
+                  border: '2px solid #16121F',
+                  borderRadius: 10,
+                  fontFamily: 'Heebo, sans-serif',
+                  fontSize: 14,
+                  width: '100%',
+                }}
+              />
+            </div>
+            <div>
+              <label style={{ display: 'block', marginBottom: 6, fontWeight: 600, fontSize: 13 }}>מחיר</label>
+              <input
+                type="number"
+                value={form.price ?? 0}
+                onChange={e => setForm({ ...form, price: parseFloat(e.target.value) || 0 })}
+                placeholder="מחיר"
+                style={{
+                  padding: '8px 12px',
+                  border: '2px solid #16121F',
+                  borderRadius: 10,
+                  fontFamily: 'Heebo, sans-serif',
+                  fontSize: 14,
+                  width: '100%',
+                }}
+              />
+            </div>
           </div>
         </div>
 
@@ -230,7 +209,7 @@ export default function ProductFormModal({ product, categories, onSave, onClose 
         <div style={{ marginBottom: 16 }}>
           {form.photoUrl ? (
             <>
-              <div style={{ marginBottom: 10, fontWeight: 600, fontSize: 13 }}>Photo</div>
+              <div style={{ marginBottom: 10, fontWeight: 600, fontSize: 13 }}>תמונה</div>
               <img src={form.photoUrl} alt="preview" style={{ maxWidth: '100%', maxHeight: 200, borderRadius: 10, border: '2px solid #16121F', marginBottom: 10 }} />
               <button
                 onClick={() => setForm({ ...form, photoUrl: null })}
@@ -241,22 +220,22 @@ export default function ProductFormModal({ product, categories, onSave, onClose 
                   color: '#16121F',
                   border: '2px solid #EBE3D6',
                   borderRadius: 10,
-                  fontFamily: "'Space Grotesk', sans-serif",
+                  fontFamily: 'Heebo, sans-serif',
                   fontWeight: 600,
                   fontSize: 13,
                   cursor: 'pointer',
                   marginBottom: 16,
                 }}
               >
-                Change photo
+                החלף תמונה
               </button>
             </>
           ) : (
             <div style={{ marginBottom: 16 }}>
               <ImageUploadCrop
-                onUpload={url => setForm({ ...form, photoUrl: url })}
+                onUpload={async (url) => setForm({ ...form, photoUrl: url })}
                 onCancel={() => {}}
-                label="Upload product photo"
+                label="העלה תמונת מוצר"
               />
             </div>
           )}
@@ -266,7 +245,7 @@ export default function ProductFormModal({ product, categories, onSave, onClose 
         <div style={{ display: 'flex', gap: 10 }}>
           <button
             onClick={handleSubmit}
-            disabled={uploading || !form.en?.name || !form.he?.name}
+            disabled={uploading || !form.name}
             style={{
               flex: 1,
               cursor: uploading ? 'wait' : 'pointer',
@@ -275,13 +254,13 @@ export default function ProductFormModal({ product, categories, onSave, onClose 
               color: '#fff',
               border: '2.5px solid #16121F',
               borderRadius: 12,
-              fontFamily: 'Fredoka, sans-serif',
+              fontFamily: 'Rubik, sans-serif',
               fontWeight: 700,
               fontSize: 15,
-              opacity: uploading || !form.en?.name || !form.he?.name ? 0.65 : 1,
+              opacity: uploading || !form.name ? 0.65 : 1,
             }}
           >
-            {uploading ? '…' : 'Save'}
+            {uploading ? '…' : 'שמור'}
           </button>
           <button
             onClick={onClose}
@@ -294,12 +273,12 @@ export default function ProductFormModal({ product, categories, onSave, onClose 
               color: '#16121F',
               border: '2px solid #EBE3D6',
               borderRadius: 12,
-              fontFamily: "'Space Grotesk', sans-serif",
+              fontFamily: 'Heebo, sans-serif',
               fontWeight: 600,
               fontSize: 15,
             }}
           >
-            Cancel
+            ביטול
           </button>
         </div>
       </div>

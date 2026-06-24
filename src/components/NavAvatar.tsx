@@ -27,7 +27,7 @@ export default function NavAvatar({ user, shadow, isAdmin, fontBody }: Props) {
             padding: '7px 13px', boxShadow: shadow(2, 2, 0, '#16121F'),
           }}
         >
-          Admin
+          מנהל
         </button>
       )}
       <button

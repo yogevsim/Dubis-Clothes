@@ -1,154 +1,125 @@
 import { useEffect, useRef, useState } from 'react'
-import { doc, getDoc, setDoc, collection, getDocs } from 'firebase/firestore'
+import { doc, getDoc, setDoc, collection, getDocs, updateDoc } from 'firebase/firestore'
 import TeddyBear from '../components/TeddyBear'
 import NavAvatar from '../components/NavAvatar'
 import SignInModal from '../components/SignInModal'
+import ProductFormModal from '../components/ProductFormModal'
 import { useAuth } from '../contexts/AuthContext'
 import { db } from '../firebase'
-
-type Lang = 'en' | 'he'
 
 const ACCENT = '#FF3D8B'
 
 interface Product {
-  id: number
+  id: string
   category: string
   backgroundHex: string
   inkHex: string
-  en: { name: string; price: number; tag: string }
-  he: { name: string; price: number; tag: string }
+  name: string
+  price: number
+  tag: string
   photoUrl: string | null
 }
 
 const CATS = ['All','Tops','Dresses','Bottoms','Outerwear','Knit','Shoes','Accessories','Vintage'] as const
 type Cat = typeof CATS[number]
 
-const CAT_LABELS: Record<Lang, Record<Cat, string>> = {
-  en: { All:'All', Tops:'Tops', Dresses:'Dresses', Bottoms:'Bottoms', Outerwear:'Outerwear', Knit:'Knit', Shoes:'Shoes', Accessories:'Accessories', Vintage:'Vintage' },
-  he: { All:'הכל', Tops:'חולצות', Dresses:'שמלות', Bottoms:'מכנסיים', Outerwear:'מעילים', Knit:'סריגים', Shoes:'נעליים', Accessories:'אקססוריז', Vintage:"וינטג'" },
+const CAT_LABELS: Record<Cat, string> = {
+  All:'הכל', Tops:'חולצות', Dresses:'שמלות', Bottoms:'מכנסיים', Outerwear:'מעילים', Knit:'סריגים', Shoes:'נעליים', Accessories:'אקססוריז', Vintage:"וינטג'",
 }
 
-const T = {
-  en: {
-    dir: 'ltr' as const,
-    fontHead: 'Fredoka, sans-serif',
-    fontBody: "'Space Grotesk', sans-serif",
-    fontMono: "'Space Mono', monospace",
-    headWeight: 700,
-    brand: "Dubi's Clothes",
-    marquee: "✦  NEW DROPS EVERY FRIDAY  ✦  FREE STICKER PACK WITH EVERY ORDER  ✦  THRIFTED + CURATED BY DUBI  ✦  ONE-OF-ONE PIECES  ✦  WHEN IT'S GONE IT'S GONE  ",
-    shopBtn: 'Shop ↓',
-    cartBtn: 'Bag',
-    heroBadge: '✦ thrifted + curated by dubi',
-    heroH1a: 'Thrifted, curated,',
-    heroH1b: 'and a little bit chaotic.',
-    heroP: "Hand-picked pieces from Dubi's ever-growing closet — tees, dresses, denim, the weird good stuff. New drops every Friday. When it's gone, it's gone.",
-    heroCta1: 'Browse the closet ↓',
-    heroCta2: "See what's new",
-    stats: [['120+','pieces in stock'],['1-of-1','vintage finds'],['48h','ships fast']] as [string,string][],
-    collage: [
-      { label:'TEE',   color:'rgba(255,61,139,.45)', bg:'#FFD9EC', r:'-7deg', anim:'floaty 6s ease-in-out infinite',       pos:{top:18,  left:24},  w:200, h:250, badge:{text:'NEW ✦', bg:'#FF3D8B', bpos:{top:-12,right:-12}, rot:'rotate(8deg)'}  },
-      { label:'DENIM', color:'rgba(45,125,210,.5)',  bg:'#CFE3FF', r:'6deg',  anim:'floaty 7s ease-in-out infinite .8s',   pos:{top:78,  right:14}, w:188, h:236, badge:null },
-      { label:'DRESS', color:'rgba(229,148,0,.55)',  bg:'#FFE9B0', r:'-3deg', anim:'floaty 6.5s ease-in-out infinite .4s', pos:{bottom:0,left:96},  w:176, h:210, badge:{text:'1 OF 1', bg:'#7B5BFF', bpos:{bottom:-14,left:-14}, rot:'rotate(-10deg)'} },
-    ],
-    bearPos: { bottom:24, right:-6 } as React.CSSProperties,
-    bearRotate: 'rotate(8deg)', bearR: '8deg',
-    shadow: (x:number,y:number,b:number,c:string) => `${x}px ${y}px ${b}px ${c}`,
-    closetTitle: 'The Closet',
-    addBtn: 'להוסיף ✦',
-    cartTitle: 'Your bag',
-    each: 'each',
-    remove: 'remove',
-    subtotalLabel: 'Subtotal',
-    checkoutBtn: 'Check out ✦',
-    sticker: 'free sticker pack included :)',
-    emptyTitle: "Your bag's feeling lonely",
-    emptyP: 'Go grab something cute\nfrom the closet ✦',
-    emptyBtn: 'Start browsing',
-    footerLinks: ['FAQ','RETURNS','@DUBISCLOTHES'],
-    copy: 'made with love + caffeine ✦ 2026',
-    fmtPrice: (n:number) => `$${n}`,
-    shipThreshold: 50,
-    shipNote: (rem:number) => rem > 0 ? `✦ spend $${rem} more for free shipping` : '✦ you unlocked free shipping!',
-    resultLabel: (cat:Cat, n:number) => `${cat==='All'?'showing everything':'category: '+CAT_LABELS.en[cat]} — ${n} piece${n===1?'':'s'}`,
-    toastSuffix: 'added to bag',
-    checkoutSoon: '🚧 checkout coming soon',
-    drawerSide: 'right' as const,
-    drawerBorderSide: 'borderLeft' as const,
-  },
-  he: {
-    dir: 'rtl' as const,
-    fontHead: 'Rubik, sans-serif',
-    fontBody: 'Heebo, sans-serif',
-    fontMono: 'Heebo, sans-serif',
-    headWeight: 800,
-    brand: 'הבגדים של דובי',
-    marquee: "✦  דרופים חדשים בכל יום שישי  ✦  חבילת מדבקות חינם בכל הזמנה  ✦  נאסף ונבחר באהבה ע״י דובי  ✦  פריטים שיש רק אחד מהם  ✦  כשנגמר — נגמר  ",
-    shopBtn: 'לרכישה ↓',
-    cartBtn: 'סל',
-    heroBadge: "✦ נאסף ונבחר ע״י דובי",
-    heroH1a: 'יד שנייה, נבחר בקפידה,',
-    heroH1b: 'וקצת כאוטי.',
-    heroP: "פריטים נבחרים מהארון הכל־כך־גדול של דובי — חולצות, שמלות, ג׳ינסים, וכל הדברים המוזרים והטובים. דרופים חדשים בכל יום שישי. כשזה נגמר, זה נגמר.",
-    heroCta1: 'לגלוש בארון ↓',
-    heroCta2: 'מה חדש',
-    stats: [['+120','פריטים במלאי'],['1 מתוך 1','אספנות נדירה'],['48 שעות','משלוח מהיר']] as [string,string][],
-    collage: [
-      { label:'חולצה', color:'rgba(255,61,139,.45)', bg:'#FFD9EC', r:'7deg',  anim:'floaty 6s ease-in-out infinite',       pos:{top:18,  right:24}, w:200, h:250, badge:{text:'חדש ✦', bg:'#FF3D8B', bpos:{top:-12,left:-12}, rot:'rotate(-8deg)'} },
-      { label:"ג׳ינס", color:'rgba(45,125,210,.5)',  bg:'#CFE3FF', r:'-6deg', anim:'floaty 7s ease-in-out infinite .8s',   pos:{top:78,  left:14},  w:188, h:236, badge:null },
-      { label:'שמלה',  color:'rgba(229,148,0,.55)',  bg:'#FFE9B0', r:'3deg',  anim:'floaty 6.5s ease-in-out infinite .4s', pos:{bottom:0,right:96}, w:176, h:210, badge:{text:'1 מתוך 1', bg:'#7B5BFF', bpos:{bottom:-14,right:-14}, rot:'rotate(10deg)'} },
-    ],
-    bearPos: { bottom:24, left:-6 } as React.CSSProperties,
-    bearRotate: 'rotate(-8deg)', bearR: '-8deg',
-    shadow: (x:number,y:number,b:number,c:string) => `-${x}px ${y}px ${b}px ${c}`,
-    closetTitle: 'הארון',
-    addBtn: 'להוסיף ✦',
-    cartTitle: 'הסל שלך',
-    each: 'ליחידה',
-    remove: 'הסרה',
-    subtotalLabel: 'סכום ביניים',
-    checkoutBtn: 'לתשלום ✦',
-    sticker: 'חבילת מדבקות חינם כלולה :)',
-    emptyTitle: 'הסל שלך מרגיש קצת בודד',
-    emptyP: 'לכי תתפסי משהו חמוד\nמהארון ✦',
-    emptyBtn: 'להתחיל לגלוש',
-    footerLinks: ['שאלות נפוצות','החזרות','@dubisclothes'],
-    copy: 'נעשה באהבה + קפאין ✦ 2026',
-    fmtPrice: (n:number) => n.toLocaleString('he-IL') + ' ₪',
-    shipThreshold: 200,
-    shipNote: (rem:number) => rem > 0 ? `✦ עוד ${rem.toLocaleString('he-IL')} ₪ למשלוח חינם` : '✦ פתחת משלוח חינם!',
-    resultLabel: (cat:Cat, n:number) => `${cat==='All'?'מציג הכל':'קטגוריה: '+CAT_LABELS.he[cat]} — ${n} ${n===1?'פריט':'פריטים'}`,
-    toastSuffix: 'נוסף לסל',
-    checkoutSoon: '🚧 תשלום בקרוב',
-    drawerSide: 'left' as const,
-    drawerBorderSide: 'borderRight' as const,
-  },
+const t = {
+  dir: 'rtl' as const,
+  fontHead: 'Rubik, sans-serif',
+  fontBody: 'Heebo, sans-serif',
+  fontMono: 'Heebo, sans-serif',
+  headWeight: 800,
+  brand: 'הבגדים של דובי',
+  marquee: "✦  דרופים חדשים בכל יום שישי  ✦  חבילת מדבקות חינם בכל הזמנה  ✦  נאסף ונבחר באהבה ע״י דובי  ✦  פריטים שיש רק אחד מהם  ✦  כשנגמר — נגמר  ",
+  shopBtn: 'לרכישה ↓',
+  cartBtn: 'סל',
+  heroBadge: "✦ נאסף ונבחר ע״י דובי",
+  heroH1a: 'יד שנייה, נבחר בקפידה,',
+  heroH1b: 'וקצת כאוטי.',
+  heroP: "פריטים נבחרים מהארון הכל־כך־גדול של דובי — חולצות, שמלות, ג׳ינסים, וכל הדברים המוזרים והטובים. דרופים חדשים בכל יום שישי. כשזה נגמר, זה נגמר.",
+  heroCta1: 'לגלוש בארון ↓',
+  heroCta2: 'מה חדש',
+  stats: [['+120','פריטים במלאי'],['1 מתוך 1','אספנות נדירה'],['48 שעות','משלוח מהיר']] as [string,string][],
+  collage: [
+    { label:'חולצה', color:'rgba(255,61,139,.45)', bg:'#FFD9EC', r:'7deg',  anim:'floaty 6s ease-in-out infinite',       pos:{top:18,  right:24}, w:200, h:250, badge:{text:'חדש ✦', bg:'#FF3D8B', bpos:{top:-12,left:-12}, rot:'rotate(-8deg)'} },
+    { label:"ג׳ינס", color:'rgba(45,125,210,.5)',  bg:'#CFE3FF', r:'-6deg', anim:'floaty 7s ease-in-out infinite .8s',   pos:{top:78,  left:14},  w:188, h:236, badge:null },
+    { label:'שמלה',  color:'rgba(229,148,0,.55)',  bg:'#FFE9B0', r:'3deg',  anim:'floaty 6.5s ease-in-out infinite .4s', pos:{bottom:0,right:96}, w:176, h:210, badge:{text:'1 מתוך 1', bg:'#7B5BFF', bpos:{bottom:-14,right:-14}, rot:'rotate(10deg)'} },
+  ],
+  bearPos: { bottom:24, left:-6 } as React.CSSProperties,
+  bearRotate: 'rotate(-8deg)', bearR: '-8deg',
+  shadow: (x:number,y:number,b:number,c:string) => `-${x}px ${y}px ${b}px ${c}`,
+  closetTitle: 'הארון',
+  addBtn: 'להוסיף ✦',
+  cartTitle: 'הסל שלך',
+  each: 'ליחידה',
+  remove: 'הסרה',
+  subtotalLabel: 'סכום ביניים',
+  checkoutBtn: 'לתשלום ✦',
+  sticker: 'חבילת מדבקות חינם כלולה :)',
+  emptyTitle: 'הסל שלך מרגיש קצת בודד',
+  emptyP: 'לכי תתפסי משהו חמוד\nמהארון ✦',
+  emptyBtn: 'להתחיל לגלוש',
+  footerLinks: ['שאלות נפוצות','החזרות','@dubisclothes'],
+  copy: 'נעשה באהבה + קפאין ✦ 2026',
+  fmtPrice: (n:number) => n.toLocaleString('he-IL') + ' ₪',
+  shipThreshold: 200,
+  shipNote: (rem:number) => rem > 0 ? `✦ עוד ${rem.toLocaleString('he-IL')} ₪ למשלוח חינם` : '✦ פתחת משלוח חינם!',
+  resultLabel: (cat:Cat, n:number) => `${cat==='All'?'מציג הכל':'קטגוריה: '+CAT_LABELS[cat]} — ${n} ${n===1?'פריט':'פריטים'}`,
+  toastSuffix: 'נוסף לסל',
+  checkoutSoon: '🚧 תשלום בקרוב',
+  drawerSide: 'left' as const,
+  drawerBorderSide: 'borderRight' as const,
 } as const
 
 export default function StorePage() {
-  const { user, isAdmin, signInWithGoogle } = useAuth()
-  const [lang, setLang] = useState<Lang>('he')
-  const [cart, setCart] = useState<Record<number, number>>({})
+  const { user, isAdmin, signInWithGoogle, sendPhoneCode, confirmPhoneCode, error } = useAuth()
+  const [cart, setCart] = useState<Record<string, number>>({})
   const [cat, setCat] = useState<Cat>('All')
   const [cartOpen, setCartOpen] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
   const [showSignInModal, setShowSignInModal] = useState(false)
   const [products, setProducts] = useState<Product[]>([])
   const [productsLoading, setProductsLoading] = useState(true)
+  const [editingProduct, setEditingProduct] = useState<Product | undefined>()
+  const [showEditModal, setShowEditModal] = useState(false)
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const cartRef = useRef(cart)
+  const docIdMapRef = useRef<Record<number, string>>({})
   cartRef.current = cart
 
-  const t = T[lang]
-  const catLabels = CAT_LABELS[lang]
+  const catLabels = CAT_LABELS
 
   // Fetch products from Firestore
   useEffect(() => {
     async function load() {
       const docs = await getDocs(collection(db, 'products'))
+      const docIdMap: Record<number, string> = {}
       const prods = docs.docs
-        .map(d => d.data() as Product)
-        .sort((a, b) => a.id - b.id)
+        .map(d => {
+          const data = d.data() as any
+          docIdMap[data.id] = d.id // Map product ID to Firestore doc ID
+          // Support both old (he/en) and new (flat) structures
+          if (data.name !== undefined) {
+            return data as Product
+          }
+          // Old structure - extract from he
+          return {
+            id: data.id,
+            category: data.category,
+            backgroundHex: data.backgroundHex,
+            inkHex: data.inkHex,
+            name: data.he?.name || '',
+            price: data.he?.price || 0,
+            tag: data.he?.tag || '',
+            photoUrl: data.photoUrl,
+          } as Product
+        })
+        .sort((a, b) => Number(a.id) - Number(b.id))
+      docIdMapRef.current = docIdMap
       setProducts(prods)
       setProductsLoading(false)
     }
@@ -164,28 +135,22 @@ export default function StorePage() {
       const fsCart = ((snap.exists() && snap.data().cart) || {}) as Record<string, number>
 
       const local = cartRef.current
-      const merged: Record<number, number> = { ...local }
+      const merged: Record<string, number> = { ...local }
       for (const [id, qty] of Object.entries(fsCart)) {
-        merged[+id] = (merged[+id] || 0) + qty
+        merged[id] = (merged[id] || 0) + qty
       }
       setCart(merged)
 
-      const mergedForFs = Object.fromEntries(
-        Object.entries(merged).map(([k, v]) => [String(k), v])
-      )
-      await setDoc(userRef, { cart: mergedForFs }, { merge: true })
+      await setDoc(userRef, { cart: merged }, { merge: true })
     }
     void mergeCart()
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.uid])
 
-  async function saveCartToFirestore(newCart: Record<number, number>) {
+  async function saveCartToFirestore(newCart: Record<string, number>) {
     if (!user) return
     const userRef = doc(db, 'users', user.uid)
-    const fsCart = Object.fromEntries(
-      Object.entries(newCart).map(([k, v]) => [String(k), v])
-    )
-    await setDoc(userRef, { cart: fsCart }, { merge: true })
+    await setDoc(userRef, { cart: newCart }, { merge: true })
   }
 
   function showToast(msg: string, duration = 1900) {
@@ -194,40 +159,65 @@ export default function StorePage() {
     toastTimer.current = setTimeout(() => setToast(null), duration)
   }
 
-  function switchLang() {
-    setLang(l => l === 'en' ? 'he' : 'en')
-    setCart({})
-    setCat('All')
-    setCartOpen(false)
-    setToast(null)
-  }
-
-  function add(id: number) {
+  function add(id: string) {
     const p = products.find(x => x.id === id)!
     const newCart = { ...cart, [id]: (cart[id] || 0) + 1 }
     setCart(newCart)
     void saveCartToFirestore(newCart)
-    showToast(`${p[lang].name} ${t.toastSuffix}`)
+    showToast(`${p.name} ${t.toastSuffix}`)
   }
 
-  function inc(id: number) {
+  function inc(id: string) {
     const newCart = { ...cart, [id]: (cart[id] || 0) + 1 }
     setCart(newCart)
     void saveCartToFirestore(newCart)
   }
 
-  function dec(id: number) {
+  function dec(id: string) {
     const newCart = { ...cart }
     if ((newCart[id] || 0) <= 1) delete newCart[id]; else newCart[id]--
     setCart(newCart)
     void saveCartToFirestore(newCart)
   }
 
-  function remove(id: number) {
+  function remove(id: string) {
     const newCart = { ...cart }
     delete newCart[id]
     setCart(newCart)
     void saveCartToFirestore(newCart)
+  }
+
+  function handleEditProduct(product: Product) {
+    setEditingProduct(product)
+    setShowEditModal(true)
+  }
+
+  async function handleSaveProduct(formData: Partial<Product>) {
+    if (!editingProduct) return
+    try {
+      const docId = docIdMapRef.current[editingProduct.id]
+      if (!docId) {
+        throw new Error('Document ID not found for product')
+      }
+      const docRef = doc(db, 'products', docId)
+      await updateDoc(docRef, {
+        category: formData.category || editingProduct.category,
+        backgroundHex: formData.backgroundHex || editingProduct.backgroundHex,
+        inkHex: formData.inkHex || editingProduct.inkHex,
+        name: formData.name || editingProduct.name,
+        price: formData.price !== undefined ? formData.price : editingProduct.price,
+        tag: formData.tag || editingProduct.tag,
+        photoUrl: formData.photoUrl !== undefined ? formData.photoUrl : editingProduct.photoUrl,
+      })
+      // Update local products list
+      setProducts(products.map(p => p.id === editingProduct.id ? { ...p, ...formData } : p))
+      setShowEditModal(false)
+      setEditingProduct(undefined)
+      showToast('✓ המוצר עודכן')
+    } catch (error) {
+      console.error('Save failed:', error)
+      showToast('שגיאה בשמירה')
+    }
   }
 
   function toCatalog() {
@@ -246,12 +236,11 @@ export default function StorePage() {
   const filtered  = products.filter(p => cat === 'All' || p.category === cat)
   const cartItems = Object.entries(cart)
     .map(([id, qty]) => {
-      const p = products.find(x => x.id === +id)
+      const p = products.find(x => x.id === id)
       if (!p) return null
-      const langData = p[lang]
-      return { ...p, qty, name: langData.name, price: langData.price, tag: langData.tag, category: p.category }
+      return { ...p, qty }
     })
-    .filter((x): x is Product & { qty: number; name: string; price: number; tag: string; category: string } => x !== null)
+    .filter((x): x is Product & { qty: number } => x !== null)
   const cartCount = cartItems.reduce((n, it) => n + it.qty, 0)
   const subtotal  = cartItems.reduce((n, it) => n + it.price * it.qty, 0)
   const hasItems  = cartItems.length > 0
@@ -267,11 +256,17 @@ export default function StorePage() {
       {/* grid bg */}
       <div style={{ position:'fixed', inset:0, pointerEvents:'none', zIndex:0, backgroundImage:'linear-gradient(rgba(123,91,255,.05) 1px,transparent 1px),linear-gradient(90deg,rgba(123,91,255,.05) 1px,transparent 1px)', backgroundSize:'34px 34px' }} />
 
-      <div style={{ position:'relative', zIndex:1 }}>
+      {error && (
+        <div style={{ position:'fixed', top:0, left:0, right:0, zIndex:1000, background:'#FFB5C5', border:'2px solid #16121F', padding:'12px 24px', fontFamily:t.fontBody, fontSize:13, color:'#16121F', textAlign:'center' }}>
+          {error}
+        </div>
+      )}
+
+      <div style={{ position:'relative', zIndex:1, paddingTop: error ? 50 : 0 }}>
 
         {/* ── MARQUEE ── */}
         <div style={{ background:'#16121F', color:'#FFE9B0', overflow:'hidden', whiteSpace:'nowrap', borderBottom:'3px solid #16121F' }}>
-          <div className="marquee" style={{ display:'inline-flex', fontFamily:t.fontBody, fontSize:13, fontWeight:700, letterSpacing:lang==='en'?'.14em':'.04em', padding:'9px 0' }}>
+          <div className="marquee" style={{ display:'inline-flex', fontFamily:t.fontBody, fontSize:13, fontWeight:700, letterSpacing:'.04em', padding:'9px 0' }}>
             <span>{t.marquee}</span><span>{t.marquee}</span>
           </div>
         </div>
@@ -283,9 +278,6 @@ export default function StorePage() {
             <span style={{ fontFamily:t.fontHead, fontWeight:t.headWeight, fontSize:21, letterSpacing:'-.01em' }}>{t.brand}</span>
           </div>
           <div style={{ display:'flex', alignItems:'center', gap:10 }}>
-            <button onClick={switchLang} style={{ display:'none' }}>
-              EN ⇄ עב
-            </button>
             <button onClick={toCatalog} className="shop-btn" style={{ cursor:'pointer', fontFamily:t.fontBody, fontWeight:700, fontSize:14, color:'#16121F', background:'transparent', border:'2px solid #16121F', borderRadius:999, padding:'9px 16px', transition:'background .15s' }}>
               {t.shopBtn}
             </button>
@@ -305,13 +297,13 @@ export default function StorePage() {
         {/* ── HERO ── */}
         <section style={{ maxWidth:1180, margin:'0 auto', padding:'54px 24px 30px', display:'grid', gridTemplateColumns:'1.05fr .95fr', gap:40, alignItems:'center' }}>
           <div>
-            <div style={{ display:'inline-flex', alignItems:'center', gap:8, background:'#D9F5EC', border:'2px solid #16121F', borderRadius:999, padding:'6px 14px', fontFamily:t.fontBody, fontSize:lang==='en'?12:13, fontWeight:700, letterSpacing:lang==='en'?'.08em':'.02em', boxShadow:sh(2,2,0,'#16121F'), marginBottom:22 }}>
+            <div style={{ display:'inline-flex', alignItems:'center', gap:8, background:'#D9F5EC', border:'2px solid #16121F', borderRadius:999, padding:'6px 14px', fontFamily:t.fontBody, fontSize:13, fontWeight:700, letterSpacing:'.02em', boxShadow:sh(2,2,0,'#16121F'), marginBottom:22 }}>
               {t.heroBadge}
             </div>
-            <h1 style={{ margin:0, fontFamily:t.fontHead, fontWeight:t.headWeight, fontSize:lang==='en'?62:60, lineHeight:lang==='en'?1.02:1.05, letterSpacing:'-.02em' }}>
+            <h1 style={{ margin:0, fontFamily:t.fontHead, fontWeight:t.headWeight, fontSize:60, lineHeight:1.05, letterSpacing:'-.02em' }}>
               {t.heroH1a}<br /><span style={{ color:ACCENT }}>{t.heroH1b}</span>
             </h1>
-            <p style={{ margin:'22px 0 0', fontSize:17, lineHeight:lang==='en'?1.55:1.6, maxWidth:lang==='en'?440:460, color:'#4A4453' }}>{t.heroP}</p>
+            <p style={{ margin:'22px 0 0', fontSize:17, lineHeight:1.6, maxWidth:460, color:'#4A4453' }}>{t.heroP}</p>
             <div style={{ display:'flex', flexWrap:'wrap', gap:12, marginTop:28 }}>
               <button onClick={toCatalog} className="btn-lift" style={primaryBtn}>{t.heroCta1}</button>
               <button onClick={toCatalog} className="btn-lift" style={{ cursor:'pointer', fontFamily:t.fontHead, fontWeight:t.headWeight, fontSize:16, color:'#16121F', background:'#fff', border:'2px solid #16121F', borderRadius:14, padding:'13px 22px', boxShadow:sh(3,3,0,'#16121F'), transition:'transform .12s' }}>{t.heroCta2}</button>
@@ -321,7 +313,7 @@ export default function StorePage() {
                 <div key={val} style={{ display:'contents' }}>
                   <div style={{ display:'flex', flexDirection:'column' }}>
                     <span style={{ fontFamily:t.fontHead, fontWeight:t.headWeight, fontSize:24 }}>{val}</span>
-                    <span style={{ fontFamily:t.fontBody, fontSize:lang==='en'?11:12, color:'#8A8194', textTransform:lang==='en'?'uppercase':undefined, letterSpacing:lang==='en'?'.08em':undefined }}>{label}</span>
+                    <span style={{ fontFamily:t.fontBody, fontSize:12, color:'#8A8194' }}>{label}</span>
                   </div>
                   {i < arr.length - 1 && <div style={{ width:2, background:'#EBE3D6' }} />}
                 </div>
@@ -337,9 +329,9 @@ export default function StorePage() {
             {t.collage.map(({ label, color, bg, r, anim, pos, w, h, badge }) => (
               <div key={label} style={{ position:'absolute', ...pos, width:w, height:h, background:bg, border:'2.5px solid #16121F', borderRadius:22, boxShadow:sh(6,6,0,'#16121F'), animation:anim, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:8, '--r':r } as unknown as React.CSSProperties}>
                 <span style={{ fontFamily:t.fontHead, fontWeight:t.headWeight, fontSize:label.length > 4 ? 36 : 42, color }}>{label}</span>
-                <span style={{ fontFamily:t.fontBody, fontSize:lang==='en'?10:11, color:'rgba(22,18,31,.5)' }}>{lang==='en'?'PHOTO SOON':'תמונה בקרוב'}</span>
+                <span style={{ fontFamily:t.fontBody, fontSize:11, color:'rgba(22,18,31,.5)' }}>תמונה בקרוב</span>
                 {badge && (
-                  <div style={{ position:'absolute', background:badge.bg, color:'#fff', fontFamily:t.fontBody, fontSize:lang==='en'?10:11, fontWeight:700, padding:'6px 10px', borderRadius:10, border:'2px solid #16121F', boxShadow:sh(2,2,0,'#16121F'), transform:badge.rot, ...badge.bpos }}>
+                  <div style={{ position:'absolute', background:badge.bg, color:'#fff', fontFamily:t.fontBody, fontSize:11, fontWeight:700, padding:'6px 10px', borderRadius:10, border:'2px solid #16121F', boxShadow:sh(2,2,0,'#16121F'), transform:badge.rot, ...badge.bpos }}>
                     {badge.text}
                   </div>
                 )}
@@ -352,7 +344,7 @@ export default function StorePage() {
         <section id="catalog" style={{ maxWidth:1180, margin:'0 auto', padding:'34px 24px 70px' }}>
           <div style={{ marginBottom:20 }}>
             <h2 style={{ margin:0, fontFamily:t.fontHead, fontWeight:t.headWeight, fontSize:38, letterSpacing:'-.01em' }}>{t.closetTitle}</h2>
-            <p style={{ margin:'6px 0 0', fontFamily:t.fontMono, fontSize:lang==='en'?12:13, color:'#8A8194', letterSpacing:lang==='en'?'.06em':undefined }}>
+            <p style={{ margin:'6px 0 0', fontFamily:t.fontMono, fontSize:13, color:'#8A8194' }}>
               {t.resultLabel(cat, filtered.length)}
             </p>
           </div>
@@ -372,11 +364,9 @@ export default function StorePage() {
               </div>
             ) : (
               filtered.map(p => {
-                const name = p[lang].name
-                const price = p[lang].price
-                const tag = p[lang].tag
+                const { name, price, tag } = p
                 return (
-                  <div key={p.id} className="card-hover" style={{ background:'#fff', border:'2.5px solid #16121F', borderRadius:22, overflow:'hidden', boxShadow:sh(4,4,0,'#16121F'), display:'flex', flexDirection:'column' }}>
+                  <div key={p.id} className="card-hover" style={{ background:'#fff', border:'2.5px solid #16121F', borderRadius:22, overflow:'hidden', boxShadow:sh(4,4,0,'#16121F'), display:'flex', flexDirection:'column', position:'relative' }}>
                     <div style={{ position:'relative', aspectRatio:'4/5', overflow:'hidden', background:p.photoUrl ? 'transparent' : p.backgroundHex, borderBottom:'2.5px solid #16121F' }}>
                       {p.photoUrl ? (
                         <img src={p.photoUrl} alt={name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
@@ -384,19 +374,41 @@ export default function StorePage() {
                         <>
                           <div style={{ position:'absolute', inset:0, backgroundImage:'repeating-linear-gradient(45deg,rgba(255,255,255,.4) 0 11px,transparent 11px 22px)' }} />
                           <div style={{ position:'absolute', inset:0, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:7 }}>
-                            <span style={{ fontFamily:t.fontHead, fontWeight:t.headWeight, fontSize:lang==='en'?30:28, color:'rgba(22,18,31,.32)', textTransform:lang==='en'?'uppercase':undefined }}>{catLabels[p.category as Cat]}</span>
-                            <span style={{ fontFamily:t.fontBody, fontSize:lang==='en'?10:11, color:'rgba(22,18,31,.5)', textTransform:lang==='en'?'uppercase':undefined }}>{lang==='en'?'photo coming soon':'תמונה בקרוב'}</span>
+                            <span style={{ fontFamily:t.fontHead, fontWeight:t.headWeight, fontSize:28, color:'rgba(22,18,31,.32)' }}>{catLabels[p.category as Cat]}</span>
+                            <span style={{ fontFamily:t.fontBody, fontSize:11, color:'rgba(22,18,31,.5)' }}>תמונה בקרוב</span>
                           </div>
                         </>
                       )}
-                      <div style={{ position:'absolute', top:11, [lang==='en'?'left':'right']:11, transform:lang==='en'?'rotate(-5deg)':'rotate(5deg)', background:p.inkHex, color:'#fff', fontFamily:t.fontBody, fontSize:lang==='en'?10:11, fontWeight:700, letterSpacing:lang==='en'?'.06em':undefined, textTransform:lang==='en'?'uppercase':undefined, padding:'5px 9px', borderRadius:9, border:'2px solid #16121F', boxShadow:sh(2,2,0,'#16121F') }}>
+                      <div style={{ position:'absolute', top:11, right:11, transform:'rotate(5deg)', background:p.inkHex, color:'#fff', fontFamily:t.fontBody, fontSize:11, fontWeight:700, padding:'5px 9px', borderRadius:9, border:'2px solid #16121F', boxShadow:sh(2,2,0,'#16121F') }}>
                         {tag}
                       </div>
+                      {isAdmin && (
+                        <button
+                          onClick={() => handleEditProduct(p)}
+                          style={{
+                            position:'absolute',
+                            top:11,
+                            left:11,
+                            background:'#7B5BFF',
+                            color:'#fff',
+                            border:'2px solid #16121F',
+                            borderRadius:8,
+                            padding:'6px 11px',
+                            fontFamily:t.fontBody,
+                            fontSize:12,
+                            fontWeight:700,
+                            cursor:'pointer',
+                            boxShadow:sh(2,2,0,'#16121F'),
+                          }}
+                        >
+                          עריכה
+                        </button>
+                      )}
                     </div>
                     <div style={{ padding:'15px 15px 17px', display:'flex', flexDirection:'column', gap:9, flex:1 }}>
                       <h3 style={{ margin:0, fontFamily:t.fontHead, fontWeight:t.headWeight === 800 ? 700 : 600, fontSize:18, lineHeight:1.25 }}>{name}</h3>
                       <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:10, marginTop:'auto' }}>
-                        <span style={{ fontFamily:t.fontHead, fontWeight:t.headWeight, fontSize:lang==='en'?23:22 }}>{t.fmtPrice(price)}</span>
+                        <span style={{ fontFamily:t.fontHead, fontWeight:t.headWeight, fontSize:22 }}>{t.fmtPrice(price)}</span>
                         <button onClick={() => add(p.id)} className="btn-lift" style={addBtnStyle}>{t.addBtn}</button>
                       </div>
                     </div>
@@ -414,10 +426,10 @@ export default function StorePage() {
               <TeddyBear size={38} />
               <span style={{ fontFamily:t.fontHead, fontWeight:t.headWeight, fontSize:20 }}>{t.brand}</span>
             </div>
-            <div style={{ display:'flex', gap:20, fontFamily:t.fontMono, fontSize:lang==='en'?12:13 }}>
+            <div style={{ display:'flex', gap:20, fontFamily:t.fontMono, fontSize:13 }}>
               {t.footerLinks.map(l => <span key={l} style={{ opacity:.85 }}>{l}</span>)}
             </div>
-            <span style={{ fontFamily:t.fontBody, fontSize:lang==='en'?11:12, opacity:.6 }}>{t.copy}</span>
+            <span style={{ fontFamily:t.fontBody, fontSize:12, opacity:.6 }}>{t.copy}</span>
           </div>
         </footer>
       </div>
@@ -426,7 +438,7 @@ export default function StorePage() {
       <div onClick={() => setCartOpen(false)} style={{ position:'fixed', inset:0, zIndex:70, background:'rgba(22,18,31,.4)', transition:'opacity .25s', opacity:cartOpen?1:0, pointerEvents:cartOpen?'auto':'none' }} />
 
       {/* ── CART DRAWER ── */}
-      <aside dir={t.dir} style={{ position:'fixed', top:0, [t.drawerSide]:0, height:'100vh', width:380, maxWidth:'92vw', zIndex:80, background:'#FFFCF7', [t.drawerBorderSide]:'3px solid #16121F', boxShadow: lang==='en' ? '-8px 0 30px rgba(22,18,31,.18)' : '8px 0 30px rgba(22,18,31,.18)', display:'flex', flexDirection:'column', transition:'transform .3s cubic-bezier(.22,1,.36,1)', transform: cartOpen ? 'translateX(0)' : lang==='en' ? 'translateX(105%)' : 'translateX(-105%)' }}>
+      <aside dir={t.dir} style={{ position:'fixed', top:0, [t.drawerSide]:0, height:'100vh', width:380, maxWidth:'92vw', zIndex:80, background:'#FFFCF7', [t.drawerBorderSide]:'3px solid #16121F', boxShadow:'8px 0 30px rgba(22,18,31,.18)', display:'flex', flexDirection:'column', transition:'transform .3s cubic-bezier(.22,1,.36,1)', transform: cartOpen ? 'translateX(0)' : 'translateX(-105%)' }}>
         <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:20, borderBottom:'2.5px solid #16121F' }}>
           <h3 style={{ margin:0, fontFamily:t.fontHead, fontWeight:t.headWeight, fontSize:24 }}>{t.cartTitle}</h3>
           <button onClick={() => setCartOpen(false)} style={{ cursor:'pointer', width:36, height:36, borderRadius:11, background:'#fff', border:'2px solid #16121F', boxShadow:sh(2,2,0,'#16121F'), fontSize:16, fontWeight:700, display:'flex', alignItems:'center', justifyContent:'center' }}>✕</button>
@@ -448,7 +460,7 @@ export default function StorePage() {
                       <button onClick={() => dec(it.id)} style={{ cursor:'pointer', width:26, height:26, borderRadius:8, border:'2px solid #16121F', background:'#fff', fontWeight:700, fontSize:15, display:'flex', alignItems:'center', justifyContent:'center' }}>–</button>
                       <span style={{ fontFamily:t.fontMono, fontWeight:700, fontSize:14, minWidth:18, textAlign:'center' }}>{it.qty}</span>
                       <button onClick={() => inc(it.id)} style={{ cursor:'pointer', width:26, height:26, borderRadius:8, border:'2px solid #16121F', background:'#fff', fontWeight:700, fontSize:15, display:'flex', alignItems:'center', justifyContent:'center' }}>+</button>
-                      <button onClick={() => remove(it.id)} style={{ cursor:'pointer', [lang==='en'?'marginLeft':'marginRight']:6, background:'transparent', border:'none', fontFamily:t.fontBody, fontSize:lang==='en'?11:12, color:'#B5707E', textDecoration:'underline', textTransform:lang==='en'?'uppercase':undefined, letterSpacing:lang==='en'?'.06em':undefined }}>{t.remove}</button>
+                      <button onClick={() => remove(it.id)} style={{ cursor:'pointer', marginRight:6, background:'transparent', border:'none', fontFamily:t.fontBody, fontSize:12, color:'#B5707E', textDecoration:'underline' }}>{t.remove}</button>
                     </div>
                   </div>
                   <div style={{ fontFamily:t.fontHead, fontWeight:t.headWeight, fontSize:16, flexShrink:0 }}>{t.fmtPrice(it.price * it.qty)}</div>
@@ -456,7 +468,7 @@ export default function StorePage() {
               ))}
             </div>
             <div style={{ borderTop:'2.5px solid #16121F', padding:'18px 20px', background:'#FFF6FB' }}>
-              <div style={{ fontFamily:t.fontBody, fontSize:lang==='en'?12:13, color:'#6B6475', marginBottom:10 }}>{t.shipNote(remain)}</div>
+              <div style={{ fontFamily:t.fontBody, fontSize:13, color:'#6B6475', marginBottom:10 }}>{t.shipNote(remain)}</div>
               <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:14 }}>
                 <span style={{ fontFamily:t.fontHead, fontWeight:700, fontSize:16 }}>{t.subtotalLabel}</span>
                 <span style={{ fontFamily:t.fontHead, fontWeight:t.headWeight, fontSize:24 }}>{t.fmtPrice(subtotal)}</span>
@@ -464,14 +476,14 @@ export default function StorePage() {
               <button onClick={handleCheckout} className="btn-lift" style={{ cursor:'pointer', width:'100%', fontFamily:t.fontHead, fontWeight:t.headWeight, fontSize:18, color:'#fff', background:ACCENT, border:'2.5px solid #16121F', borderRadius:15, padding:14, boxShadow:sh(4,4,0,'#16121F'), transition:'transform .12s' }}>
                 {t.checkoutBtn}
               </button>
-              <p style={{ margin:'10px 0 0', textAlign:'center', fontFamily:t.fontBody, fontSize:lang==='en'?11:12, color:'#8A8194' }}>{t.sticker}</p>
+              <p style={{ margin:'10px 0 0', textAlign:'center', fontFamily:t.fontBody, fontSize:12, color:'#8A8194' }}>{t.sticker}</p>
             </div>
           </>
         ) : (
           <div style={{ flex:1, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:14, padding:30, textAlign:'center' }}>
             <TeddyBear size={74} />
             <div style={{ fontFamily:t.fontHead, fontWeight:700, fontSize:19 }}>{t.emptyTitle}</div>
-            <p style={{ margin:0, fontFamily:t.fontBody, fontSize:lang==='en'?12:13, color:'#8A8194', lineHeight:1.6 }}>
+            <p style={{ margin:0, fontFamily:t.fontBody, fontSize:13, color:'#8A8194', lineHeight:1.6 }}>
               {t.emptyP.split('\n').map((line, i) => <span key={i}>{line}{i===0&&<br/>}</span>)}
             </p>
             <button onClick={() => { setCartOpen(false); setTimeout(toCatalog, 120) }} style={{ cursor:'pointer', fontFamily:t.fontHead, fontWeight:t.headWeight, fontSize:15, color:'#fff', background:'#FF3D8B', border:'2px solid #16121F', borderRadius:13, padding:'11px 20px', boxShadow:sh(3,3,0,'#16121F') }}>
@@ -492,11 +504,26 @@ export default function StorePage() {
       {/* ── SIGN-IN MODAL ── */}
       {showSignInModal && (
         <SignInModal
-          lang={lang}
+          lang="he"
           dir={t.dir}
           shadow={sh}
           onSignIn={signInWithGoogle}
+          onPhoneSignIn={sendPhoneCode}
+          onPhoneConfirm={confirmPhoneCode}
           onClose={() => setShowSignInModal(false)}
+        />
+      )}
+
+      {/* ── PRODUCT EDIT MODAL ── */}
+      {showEditModal && editingProduct && (
+        <ProductFormModal
+          product={editingProduct}
+          categories={['Tops','Dresses','Bottoms','Outerwear','Accessories','Knit','Shoes','Vintage']}
+          onSave={handleSaveProduct}
+          onClose={() => {
+            setShowEditModal(false)
+            setEditingProduct(undefined)
+          }}
         />
       )}
     </div>

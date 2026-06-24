@@ -11,8 +11,14 @@ export default function AdminPage() {
   const navigate = useNavigate()
   const [tab, setTab] = useState<'products' | 'orders' | 'users'>('products')
 
+  const tabs = {
+    products: 'מוצרים',
+    orders: 'הזמנות',
+    users: 'משתמשים'
+  }
+
   return (
-    <div style={{ minHeight: '100vh', background: '#FFFCF7', fontFamily: "'Space Grotesk', sans-serif", position: 'relative' }}>
+    <div dir="rtl" style={{ minHeight: '100vh', background: '#FFFCF7', fontFamily: 'Heebo, sans-serif', position: 'relative' }}>
       <div style={{ position: 'fixed', inset: 0, pointerEvents: 'none', zIndex: 0, backgroundImage: 'linear-gradient(rgba(123,91,255,.05) 1px,transparent 1px),linear-gradient(90deg,rgba(123,91,255,.05) 1px,transparent 1px)', backgroundSize: '34px 34px' }} />
 
       <div style={{ position: 'relative', zIndex: 1, maxWidth: 800, margin: '0 auto', padding: '40px 24px 80px' }}>
@@ -20,7 +26,7 @@ export default function AdminPage() {
           onClick={() => navigate('/')}
           style={{ cursor: 'pointer', background: 'transparent', border: '2px solid #EBE3D6', borderRadius: 999, padding: '8px 16px', fontWeight: 600, fontSize: 14, color: '#4A4453', marginBottom: 32 }}
         >
-          ← Back to store
+          חזרה לחנות ←
         </button>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 30 }}>
@@ -28,8 +34,8 @@ export default function AdminPage() {
             <TeddyBear size={36} />
           </div>
           <div>
-            <h1 style={{ margin: 0, fontFamily: 'Fredoka, sans-serif', fontWeight: 700, fontSize: 32 }}>Admin Panel</h1>
-            <p style={{ margin: '2px 0 0', fontSize: 14, color: '#8A8194' }}>Signed in as {user?.email}</p>
+            <h1 style={{ margin: 0, fontFamily: 'Rubik, sans-serif', fontWeight: 700, fontSize: 32 }}>לוח בקרה</h1>
+            <p style={{ margin: '2px 0 0', fontSize: 14, color: '#8A8194' }}>{user?.email}</p>
           </div>
         </div>
 
@@ -45,14 +51,13 @@ export default function AdminPage() {
                 color: tab === t ? '#fff' : '#16121F',
                 border: '2px solid #16121F',
                 borderRadius: 10,
-                fontFamily: "'Space Grotesk', sans-serif",
+                fontFamily: 'Heebo, sans-serif',
                 fontWeight: 700,
                 fontSize: 14,
                 cursor: 'pointer',
-                textTransform: 'capitalize',
               }}
             >
-              {t}
+              {tabs[t]}
             </button>
           ))}
         </div>
@@ -61,12 +66,12 @@ export default function AdminPage() {
         {tab === 'products' && <ProductsManager />}
         {tab === 'orders' && (
           <div style={{ padding: '20px', background: '#FFF6FB', borderRadius: 14, border: '2px solid #EBE3D6', textAlign: 'center', color: '#8A8194' }}>
-            Coming soon
+            בקרוב
           </div>
         )}
         {tab === 'users' && (
           <div style={{ padding: '20px', background: '#FFF6FB', borderRadius: 14, border: '2px solid #EBE3D6', textAlign: 'center', color: '#8A8194' }}>
-            Coming soon
+            בקרוב
           </div>
         )}
       </div>
