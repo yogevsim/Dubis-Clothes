@@ -88,7 +88,7 @@ export default function StorePage() {
   const [showEditModal, setShowEditModal] = useState(false)
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const cartRef = useRef(cart)
-  const docIdMapRef = useRef<Record<number, string>>({})
+  const docIdMapRef = useRef<Record<string, string>>({})
   cartRef.current = cart
 
   const catLabels = CAT_LABELS
@@ -97,18 +97,19 @@ export default function StorePage() {
   useEffect(() => {
     async function load() {
       const docs = await getDocs(collection(db, 'products'))
-      const docIdMap: Record<number, string> = {}
+      const docIdMap: Record<string, string> = {}
       const prods = docs.docs
         .map(d => {
           const data = d.data() as any
-          docIdMap[data.id] = d.id // Map product ID to Firestore doc ID
+          const productId = String(data.id)
+          docIdMap[productId] = d.id // Map product ID to Firestore doc ID
           // Support both old (he/en) and new (flat) structures
           if (data.name !== undefined) {
-            return data as Product
+            return { ...data, id: productId } as Product
           }
           // Old structure - extract from he
           return {
-            id: data.id,
+            id: productId,
             category: data.category,
             backgroundHex: data.backgroundHex,
             inkHex: data.inkHex,
