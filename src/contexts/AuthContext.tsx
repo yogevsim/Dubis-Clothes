@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
-import { type User, signInWithPopup, signOut as fbSignOut, onAuthStateChanged } from 'firebase/auth'
+import { type User, signInWithRedirect, getRedirectResult, signOut as fbSignOut, onAuthStateChanged } from 'firebase/auth'
 import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore'
 import { auth, googleProvider, db } from '../firebase'
 
@@ -21,6 +21,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
+    // Handle redirect result from Google sign-in
+    getRedirectResult(auth).catch((error) => {
+      console.error('Redirect result error:', error)
+    })
+
     return onAuthStateChanged(auth, async (firebaseUser) => {
       setUser(firebaseUser)
       if (firebaseUser) {
@@ -48,7 +53,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   async function signInWithGoogle() {
     try {
-      await signInWithPopup(auth, googleProvider)
+      await signInWithRedirect(auth, googleProvider)
     } catch (error) {
       console.error('Sign-in error:', error)
       throw error
