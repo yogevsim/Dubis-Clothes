@@ -1,5 +1,4 @@
-import { useEffect, useState } from 'react'
-import { ConfirmationResult } from 'firebase/auth'
+import { useState } from 'react'
 import TeddyBear from './TeddyBear'
 
 interface Props {
@@ -7,8 +6,6 @@ interface Props {
   dir: 'ltr' | 'rtl'
   shadow: (x: number, y: number, b: number, c: string) => string
   onSignIn: () => Promise<void>
-  onPhoneSignIn?: (phone: string) => Promise<ConfirmationResult>
-  onPhoneConfirm?: (result: ConfirmationResult, code: string) => Promise<void>
   onClose: () => void
 }
 
@@ -17,14 +14,6 @@ const COPY = {
     title: 'Sign in to check out',
     sub: 'Save your bag and place orders. Quick and easy with Google.',
     google: 'Continue with Google',
-    phone: 'Sign in with phone number',
-    phoneSub: 'We\'ll send you a verification code via SMS.',
-    phoneNumber: 'Phone number',
-    enterCode: 'Enter verification code',
-    code: 'Verification code',
-    send: 'Send code',
-    confirm: 'Confirm',
-    back: 'Back',
     skip: 'Maybe later',
     error: 'Sign-in failed. Please try again.',
   },
@@ -32,14 +21,6 @@ const COPY = {
     title: 'כניסה לביצוע תשלום',
     sub: 'שמרי את הסל שלך וביצעי הזמנות. מהיר ופשוט עם Google.',
     google: 'המשך עם Google',
-    phone: 'כניסה עם מספר טלפון',
-    phoneSub: 'נשלח לך קוד אימות בהודעת SMS.',
-    phoneNumber: 'מספר טלפון',
-    enterCode: 'הזן קוד אימות',
-    code: 'קוד אימות',
-    send: 'שלח קוד',
-    confirm: 'אישור',
-    back: 'חזור',
     skip: 'אולי אחר כך',
     error: 'כניסה נכשלה. אנא נסה שוב.',
   },
@@ -56,22 +37,10 @@ function GoogleLogo() {
   )
 }
 
-export default function SignInModal({ lang, dir, shadow, onSignIn, onPhoneSignIn, onPhoneConfirm, onClose }: Props) {
+export default function SignInModal({ lang, dir, shadow, onSignIn, onClose }: Props) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [isMobile, setIsMobile] = useState(false)
-  const [phoneNumber, setPhoneNumber] = useState('')
-  const [verificationCode, setVerificationCode] = useState('')
-  const [confirmationResult, setConfirmationResult] = useState<ConfirmationResult | null>(null)
-  const [step, setStep] = useState<'method' | 'phone' | 'code'>('method')
   const t = COPY[lang]
-
-  useEffect(() => {
-    const userAgent = navigator.userAgent.toLowerCase()
-    const isMobileDevice = /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini/.test(userAgent)
-    setIsMobile(isMobileDevice)
-    if (isMobileDevice) setStep('phone')
-  }, [])
 
   async function handleSignIn() {
     setLoading(true)
@@ -86,35 +55,6 @@ export default function SignInModal({ lang, dir, shadow, onSignIn, onPhoneSignIn
         return
       }
       setError(t.error)
-      setLoading(false)
-    }
-  }
-
-  async function handleSendCode() {
-    if (!phoneNumber || !onPhoneSignIn) return
-    setLoading(true)
-    setError(null)
-    try {
-      const result = await onPhoneSignIn(phoneNumber)
-      setConfirmationResult(result)
-      setStep('code')
-    } catch (e: unknown) {
-      setError(t.error)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  async function handleConfirmCode() {
-    if (!verificationCode || !confirmationResult || !onPhoneConfirm) return
-    setLoading(true)
-    setError(null)
-    try {
-      await onPhoneConfirm(confirmationResult, verificationCode)
-      onClose()
-    } catch (e: unknown) {
-      setError(t.error)
-    } finally {
       setLoading(false)
     }
   }
@@ -144,115 +84,27 @@ export default function SignInModal({ lang, dir, shadow, onSignIn, onPhoneSignIn
         <h2 style={{ margin: '0 0 10px', fontFamily: 'Fredoka, sans-serif', fontWeight: 700, fontSize: 24, textAlign: 'center', lineHeight: 1.2 }}>
           {t.title}
         </h2>
+        <p style={{ margin: '0 0 24px', fontFamily: "'Space Grotesk', sans-serif", fontSize: 13, color: '#8A8194', textAlign: 'center', lineHeight: 1.55 }}>
+          {t.sub}
+        </p>
 
-        {step === 'method' && (
-          <>
-            <p style={{ margin: '0 0 24px', fontFamily: "'Space Grotesk', sans-serif", fontSize: 13, color: '#8A8194', textAlign: 'center', lineHeight: 1.55 }}>
-              {t.sub}
-            </p>
-            <button
-              onClick={handleSignIn}
-              disabled={loading}
-              className="btn-lift"
-              style={{
-                cursor: loading ? 'wait' : 'pointer',
-                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
-                width: '100%', padding: '13px 20px',
-                background: '#fff', border: '2.5px solid #16121F',
-                borderRadius: 14, boxShadow: shadow(4, 4, 0, '#16121F'),
-                fontFamily: "'Space Grotesk', sans-serif", fontWeight: 700, fontSize: 15,
-                transition: 'transform .12s', opacity: loading ? 0.65 : 1,
-              }}
-            >
-              <GoogleLogo />
-              {loading ? '…' : t.google}
-            </button>
-          </>
-        )}
-
-        {step === 'phone' && (
-          <>
-            <p style={{ margin: '0 0 24px', fontFamily: "'Space Grotesk', sans-serif", fontSize: 13, color: '#8A8194', textAlign: 'center', lineHeight: 1.55 }}>
-              {confirmationResult ? t.enterCode : t.phoneSub}
-            </p>
-            {!confirmationResult ? (
-              <>
-                <input
-                  type="tel"
-                  placeholder={t.phoneNumber}
-                  value={phoneNumber}
-                  onChange={(e) => setPhoneNumber(e.target.value)}
-                  disabled={loading}
-                  style={{
-                    width: '100%', padding: '11px 14px', marginBottom: 12,
-                    border: '2.5px solid #16121F', borderRadius: 12,
-                    fontFamily: "'Space Grotesk', sans-serif", fontSize: 15,
-                    background: '#fff', outline: 'none',
-                  }}
-                />
-                <button
-                  onClick={handleSendCode}
-                  disabled={loading || !phoneNumber}
-                  className="btn-lift"
-                  style={{
-                    cursor: loading ? 'wait' : 'pointer',
-                    width: '100%', padding: '13px 20px',
-                    background: '#FF3D8B', color: '#fff', border: '2.5px solid #16121F',
-                    borderRadius: 14, boxShadow: shadow(4, 4, 0, '#16121F'),
-                    fontFamily: "'Space Grotesk', sans-serif", fontWeight: 700, fontSize: 15,
-                    transition: 'transform .12s', opacity: loading || !phoneNumber ? 0.65 : 1,
-                  }}
-                >
-                  {loading ? '…' : t.send}
-                </button>
-              </>
-            ) : (
-              <>
-                <input
-                  type="text"
-                  placeholder={t.code}
-                  value={verificationCode}
-                  onChange={(e) => setVerificationCode(e.target.value)}
-                  disabled={loading}
-                  maxLength={6}
-                  style={{
-                    width: '100%', padding: '11px 14px', marginBottom: 12,
-                    border: '2.5px solid #16121F', borderRadius: 12,
-                    fontFamily: "'Space Grotesk', sans-serif", fontSize: 15,
-                    background: '#fff', outline: 'none', textAlign: 'center',
-                  }}
-                />
-                <button
-                  onClick={handleConfirmCode}
-                  disabled={loading || verificationCode.length < 6}
-                  className="btn-lift"
-                  style={{
-                    cursor: loading ? 'wait' : 'pointer',
-                    width: '100%', padding: '13px 20px',
-                    background: '#FF3D8B', color: '#fff', border: '2.5px solid #16121F',
-                    borderRadius: 14, boxShadow: shadow(4, 4, 0, '#16121F'),
-                    fontFamily: "'Space Grotesk', sans-serif", fontWeight: 700, fontSize: 15,
-                    transition: 'transform .12s', opacity: loading || verificationCode.length < 6 ? 0.65 : 1,
-                  }}
-                >
-                  {loading ? '…' : t.confirm}
-                </button>
-                <button
-                  onClick={() => { setConfirmationResult(null); setVerificationCode('') }}
-                  disabled={loading}
-                  style={{
-                    cursor: 'pointer', display: 'block', width: '100%', marginTop: 12,
-                    padding: '11px 20px', background: 'transparent',
-                    border: '2px solid #EBE3D6', borderRadius: 14,
-                    fontFamily: "'Space Grotesk', sans-serif", fontWeight: 600, fontSize: 14, color: '#8A8194',
-                  }}
-                >
-                  {t.back}
-                </button>
-              </>
-            )}
-          </>
-        )}
+        <button
+          onClick={handleSignIn}
+          disabled={loading}
+          className="btn-lift"
+          style={{
+            cursor: loading ? 'wait' : 'pointer',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
+            width: '100%', padding: '13px 20px',
+            background: '#fff', border: '2.5px solid #16121F',
+            borderRadius: 14, boxShadow: shadow(4, 4, 0, '#16121F'),
+            fontFamily: "'Space Grotesk', sans-serif", fontWeight: 700, fontSize: 15,
+            transition: 'transform .12s', opacity: loading ? 0.65 : 1,
+          }}
+        >
+          <GoogleLogo />
+          {loading ? '…' : t.google}
+        </button>
 
         {error && (
           <p style={{ margin: '12px 0 0', fontFamily: "'Space Grotesk', sans-serif", fontSize: 13, color: '#B5707E', textAlign: 'center' }}>
@@ -260,19 +112,17 @@ export default function SignInModal({ lang, dir, shadow, onSignIn, onPhoneSignIn
           </p>
         )}
 
-        {step === 'method' && (
-          <button
-            onClick={onClose}
-            style={{
-              cursor: 'pointer', display: 'block', width: '100%', marginTop: 12,
-              padding: '11px 20px', background: 'transparent',
-              border: '2px solid #EBE3D6', borderRadius: 14,
-              fontFamily: "'Space Grotesk', sans-serif", fontWeight: 600, fontSize: 14, color: '#8A8194',
-            }}
-          >
-            {t.skip}
-          </button>
-        )}
+        <button
+          onClick={onClose}
+          style={{
+            cursor: 'pointer', display: 'block', width: '100%', marginTop: 12,
+            padding: '11px 20px', background: 'transparent',
+            border: '2px solid #EBE3D6', borderRadius: 14,
+            fontFamily: "'Space Grotesk', sans-serif", fontWeight: 600, fontSize: 14, color: '#8A8194',
+          }}
+        >
+          {t.skip}
+        </button>
       </div>
     </>
   )

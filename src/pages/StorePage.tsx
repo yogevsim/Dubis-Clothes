@@ -76,7 +76,7 @@ const t = {
 } as const
 
 export default function StorePage() {
-  const { user, isAdmin, signInWithGoogle, sendPhoneCode, confirmPhoneCode, error } = useAuth()
+  const { user, isAdmin, signInWithGoogle, error } = useAuth()
   const [cart, setCart] = useState<Record<string, number>>({})
   const [cat, setCat] = useState<Cat>('All')
   const [cartOpen, setCartOpen] = useState(false)
@@ -508,8 +508,6 @@ export default function StorePage() {
           dir={t.dir}
           shadow={sh}
           onSignIn={signInWithGoogle}
-          onPhoneSignIn={sendPhoneCode}
-          onPhoneConfirm={confirmPhoneCode}
           onClose={() => setShowSignInModal(false)}
         />
       )}
